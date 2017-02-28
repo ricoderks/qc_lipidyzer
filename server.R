@@ -18,7 +18,8 @@ shinyServer(function(input, output) {
                   paste0(my_file$datapath, ".xlsx"))
       df <- read_excel(path = paste0(my_file$datapath, ".xlsx"),
                  sheet = "Lipid Class Composition",
-                 col_names = TRUE)
+                 col_names = TRUE,
+                 na = ".")
       df %>% filter(! grepl(Name, pattern = "QC_SPIKE*"))      # remove QC_SPIKE samples
     }
   })
@@ -30,8 +31,7 @@ shinyServer(function(input, output) {
       df() %>%
         filter(grepl(Name, pattern = "QC-*")) %>%
         gather(lipid_class, concentration, -Name) %>%
-        mutate(lipid_class = as.factor(lipid_class),
-               concentration = as.numeric(concentration)) %>%
+        mutate(lipid_class = as.factor(lipid_class)) %>%
         group_by(lipid_class) %>%
         summarise(mean = mean(concentration, na.rm = TRUE),
                 stdev = sd(concentration, na.rm = TRUE)) %>%
@@ -47,8 +47,7 @@ shinyServer(function(input, output) {
       df() %>% 
         filter(grepl(Name, pattern = "QC-*")) %>%
         gather(lipid_class, concentration, -Name) %>%
-        mutate(lipid_class = as.factor(lipid_class),
-               concentration = as.numeric(concentration)) %>%                      # batch 1 give characters instead of numbers
+        mutate(lipid_class = as.factor(lipid_class)) %>%
         ggplot() +
           geom_point(aes(x = factor(Name, levels = unique(Name)),
                      y = concentration,
