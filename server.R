@@ -1,23 +1,23 @@
-
-# This is the server logic for a Shiny web application.
-# You can find out more about building applications with Shiny here:
-#
-# http://shiny.rstudio.com
-#
-
 library(shiny)
+library(readxl)
+library(dplyr)
 
 shinyServer(function(input, output) {
-
-  output$distPlot <- renderPlot({
-
-    # generate bins based on input$bins from ui.R
-    x    <- faithful[, 2]
-    bins <- seq(min(x), max(x), length.out = input$bins + 1)
-
-    # draw the histogram with the specified number of bins
-    hist(x, breaks = bins, col = 'darkgray', border = 'white')
-
-  })
-
+    output$my_table <- renderTable({
+      my_file <- input$result_files
+      
+      if (is.null(my_file)) {
+        return(NULL)
+      } else {
+        # need to rename the file because of problem with readxl
+        # it needs the xlsx extension
+        file.rename(my_file$datapath,
+                    paste0(my_file$datapath, ".xlsx"))
+        df <- read_excel(path = paste0(my_file$datapath, ".xlsx"),
+                   sheet = "Lipid Class Composition",
+                   col_names = TRUE)
+        df <- df %>% filter(grepl(Name, pattern = "QC-*"))
+        head(df)
+      }
+      })
 })
