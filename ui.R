@@ -12,16 +12,32 @@ shinyUI(fluidPage(
                            multiple = TRUE),
                  selectInput(inputId = "select_sheet",
                              label = "Select a sheet to view :",
-                             choices = c("Lipid class concentration" = "Lipid Class Concentration",
+                             choices = c("Lipid species concentration" = "Lipid Species Concentration",
+                                         "Lipid species composition" = "Lipid Species Composition",
+                                         "Lipid class concentration" = "Lipid Class Concentration",
                                          "Lipid class composition" = "Lipid Class Composition"),
-                             selected = "Lipid Class Concentration")
+                             selected = "Lipid Class Concentration"),
+                 conditionalPanel(condition = "input.select_sheet == 'Lipid Species Concentration'",
+                                  selectInput(inputId = "select_species",
+                                              label = "Select a species :",
+                                              choices = c("CE" = "CE",
+                                                          "DAG" = "DAG",
+                                                          "FFA" = "FFA",
+                                                          "LPC" = "LPC",
+                                                          "LPE" = "LPE",
+                                                          "PC" = "PC",
+                                                          "PE" = "PE",
+                                                          "SM" = "SM",
+                                                          "TAG" = "TAG"),
+                                              selected = "CE")
+                                  )
     ),
     
     # show my stuff
     mainPanel(
       tabsetPanel(
         tabPanel("Results",
-        textOutput("my_text"),
+        #textOutput("my_text"),
               DT::dataTableOutput("my_table"),
               br(),
               plotOutput("my_plot", height = "600px")),
