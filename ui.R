@@ -17,7 +17,7 @@ shinyUI(fluidPage(
                                          "Lipid class concentration" = "Lipid Class Concentration",
                                          "Lipid class composition" = "Lipid Class Composition"),
                              selected = "Lipid Class Concentration"),
-                 conditionalPanel(condition = "input.select_sheet == 'Lipid Species Concentration'",
+                 conditionalPanel(condition = "input.select_sheet == 'Lipid Species Concentration' || input.select_sheet == 'Lipid Species Composition'",
                                   selectInput(inputId = "select_species",
                                               label = "Select a species :",
                                               choices = c("CE" = "CE",
@@ -40,7 +40,7 @@ shinyUI(fluidPage(
         #textOutput("my_text"),
               DT::dataTableOutput("my_table"),
               br(),
-              plotOutput("my_plot", height = "600px")),
+              plotOutput("my_plot", height = "550px")),
         tabPanel("Help",
                  h3("Introduction"),
                  p("This is a first version of the web application to visualize the QC samples from a Lipidyzer study. 

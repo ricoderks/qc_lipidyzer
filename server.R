@@ -85,7 +85,7 @@ shinyServer(
                    #                           pattern = "PE\\([OP]-",
                    #                           replacement = "PE")) %>%
                    mutate(Name = factor(Name, levels = unique(Name)),
-                          lipid = as.factor(lipid),
+                          lipid = factor(lipid, levels = unique(lipid)),
                           batch = as.factor(batch))})
       }
     })
@@ -118,7 +118,15 @@ shinyServer(
         myparams <- params()
         df <- switch(myparams$type,
                      "class" = df(),
-                     "species" = df() %>% filter(lipid_class == input$select_species))
+                     "species" = {
+                       if (length(input$my_table_rows_selected) == 0) {
+                         df <- df() %>% filter(lipid_class == input$select_species) 
+                       } else {
+                         df <- df() %>% filter(lipid_class == input$select_species)
+                         x <- levels(droplevels(df$lipid))[input$my_table_rows_selected]
+                         df %>% filter(lipid %in% x)
+                       }
+                     })
         p <- df %>%
           ggplot() +
           geom_point(aes(x = Name,
@@ -150,7 +158,9 @@ shinyServer(
     #    if (is.null(myfiles())) {
     #      return("")
     #    } else {
-    #      paste(params(), "\n")
+    #      tmp <- df() %>% filter(lipid_class == input$select_species)
+    #      x <-levels(droplevels(tmp$lipid))[input$my_table_rows_selected]
+    #      paste(input$select_species, x, sep = "\n")
     #    }
     #  })
     
