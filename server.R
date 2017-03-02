@@ -127,10 +127,15 @@ shinyServer(
           geom_path(aes(x = Name,
                         y = value,
                         color = lipid,
-                        group = lipid)) +
-          guides(color = "none",
-                 shape = guide_legend(title = "Batch")) +
-          theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+                        group = lipid))
+        if (nrow(myfiles()) == 1) {
+          p <- p + guides(color = "none",
+                          shape = "none")
+        } else {
+          p <- p + guides(color = "none",
+                          shape = guide_legend(title = "Batch")) 
+        }
+        p <- p + theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
           xlab("QC sample ID") +
           ylab(params()$ylab)
         if (myparams$type == "class") {
