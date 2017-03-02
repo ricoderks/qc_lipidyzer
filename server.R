@@ -106,6 +106,10 @@ shinyServer(
       }
     })
     
+    # output$help_session <- renderPrint({
+    #   sessionInfo()
+    # })
+    
     # output$my_text <- renderText({
     #    if (is.null(myfiles())) {
     #      return("")
