@@ -6,17 +6,22 @@ shinyUI(fluidPage(
   
   ## Sidebar 
   sidebarLayout(
-    sidebarPanel(fileInput("result_files", 
+    sidebarPanel(width = 3,
+                 fileInput("result_files", 
                            "Choose XLSX files from lipidyzer",
-                           multiple = TRUE)
+                           multiple = TRUE),
+                 selectInput(inputId = "select_sheet",
+                             label = "Select a sheet to view :",
+                             choices = c("Lipid class concentration" = "Lipid Class Concentration",
+                                         "Lipid class composition" = "Lipid Class Composition"),
+                             selected = "Lipid Class Concentration")
     ),
     
     # show my stuff
-    mainPanel("the main panel for the plots",
-              textOutput("my_text"),
+    mainPanel(textOutput("my_text"),
               DT::dataTableOutput("my_table"),
               br(),
-              plotOutput("my_plot")
+              plotOutput("my_plot", height = "600px")
     )
   )
 ))

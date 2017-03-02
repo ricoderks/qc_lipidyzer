@@ -1,5 +1,5 @@
 myfiles <- data.frame(name = c("Results_BATCH1.xlsx", "Results_BATCH2.xlsx", "Results_BATCH3.xlsx"), 
-                      datapath = c("./data/Results_BATCH1.xlsx", "./data/Results_BATCH2.xlsx", "./data/Results_BATCH3.xlsx"))
+                      datapath = c("./data/batch1.xlsx", "./data/batch2.xlsx", "./data/batch3.xlsx"))
 myfiles$datapath <- as.character(myfiles$datapath)
 
 
@@ -23,5 +23,6 @@ aap <- aap %>%
 
 # how to join multiple rows (tables) into one dataframe (tibble)
 
-all <- aap$data %>% Reduce(function(df1, df2) { full_join(df1, df2)}, .)
+all <- aap$data %>% Reduce(function(df1, df2) { full_join(df1, df2) }, .)
 
+all
