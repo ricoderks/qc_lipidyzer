@@ -43,7 +43,9 @@ shinyUI(fluidPage(
               plotOutput("my_plot", height = "550px")),
         tabPanel("Help",
                  h3("Introduction"),
-                 p("This is a first version of the web application to visualize the QC samples from a Lipidyzer study."),
+                 p("This is a first version of the web application to visualize the QC samples from a Lipidyzer study. 
+                   Currently switching Excel sheet will cause the web application to read all files again. 
+                   This will be changed in the future to improve speed."),
                  p(strong("Prerequisites :")),
                  p(HTML("<ul>
                    <li>The order of the processing of the files is alphabetically.</li>
