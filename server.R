@@ -19,10 +19,10 @@ shinyServer(
   function(input, output) {
     params <- reactive({
       switch(input$select_sheet,
-             "Lipid Species Concentration" = list(sheetname = "Lipid Species Concentrations", ylab = "Concentration", col_title = "Lipid species", type = "species"),
-             "Lipid Species Composition" = list(sheetname = "Lipid Species Composition", ylab = "Composition", col_title = "Lipid species", type = "species"),
-             "Lipid Class Concentration" = list(sheetname = "Lipid Class Concentration", ylab = "Concentration", col_title = "Lipid class", type = "class"),
-             "Lipid Class Composition" = list(sheetname = "Lipid Class Composition", ylab = "Composition", col_title = "Lipid class", type = "class"))
+             "Lipid Species Concentration" = list(sheetname = "Lipid Species Concentrations", ylab = "Concentration", col_title = "Lipid species",row_selection = "multiple", type = "species"),
+             "Lipid Species Composition" = list(sheetname = "Lipid Species Composition", ylab = "Composition", col_title = "Lipid species", row_selection = "multiple", type = "species"),
+             "Lipid Class Concentration" = list(sheetname = "Lipid Class Concentration", ylab = "Concentration", col_title = "Lipid class", row_selection = "none", type = "class"),
+             "Lipid Class Composition" = list(sheetname = "Lipid Class Composition", ylab = "Composition", col_title = "Lipid class", row_selection = "none", type = "class"))
     })
 
     myfiles <- reactive({
@@ -81,9 +81,6 @@ shinyServer(
                    mutate(lipid_class = as.factor(gsub(x = lipid,
                                                        pattern = "[\\(]{0,1}[0-9.].*",
                                                        replacement = ""))) %>%
-                   # mutate(lipid_class = gsub(x = lipid_class,
-                   #                           pattern = "PE\\([OP]-",
-                   #                           replacement = "PE")) %>%
                    mutate(Name = factor(Name, levels = unique(Name)),
                           lipid = factor(lipid, levels = unique(lipid)),
                           batch = as.factor(batch))})
@@ -98,7 +95,7 @@ shinyServer(
         #do the stats
         df <- switch(myparams$type,
                      "class" = df(),
-                     "species" = df() %>% filter(lipid_class == input$select_species))
+                     "species" = df() %>% filter(lipid_class == input$select_class))
         df %>%
           select(lipid, value, Name) %>%
           group_by(lipid) %>%
@@ -106,7 +103,7 @@ shinyServer(
                     stdev = sd(value, na.rm = TRUE),
                     RSD = stdev / mean * 100) %>%
           datatable(colnames = c(params()$col_title, "Mean", "St.dev.", "RSD [%]"),
-                    options = list(dom = "pt")) %>%             # remove the search field
+                    options = list(dom = "pt"), selection = myparams$row_selection) %>%             # remove the search field
           formatRound(columns = c("mean", "stdev", "RSD"), digits = 2)
       }
     })
@@ -120,9 +117,9 @@ shinyServer(
                      "class" = df(),
                      "species" = {
                        if (length(input$my_table_rows_selected) == 0) {
-                         df <- df() %>% filter(lipid_class == input$select_species) 
+                         df <- df() %>% filter(lipid_class == input$select_class) 
                        } else {
-                         df <- df() %>% filter(lipid_class == input$select_species)
+                         df <- df() %>% filter(lipid_class == input$select_class)
                          x <- levels(droplevels(df$lipid))[input$my_table_rows_selected]
                          df %>% filter(lipid %in% x)
                        }
@@ -158,9 +155,9 @@ shinyServer(
     #    if (is.null(myfiles())) {
     #      return("")
     #    } else {
-    #      tmp <- df() %>% filter(lipid_class == input$select_species)
+    #      tmp <- df() %>% filter(lipid_class == input$select_class)
     #      x <-levels(droplevels(tmp$lipid))[input$my_table_rows_selected]
-    #      paste(input$select_species, x, sep = "\n")
+    #      paste(input$select_class, x, sep = "\n")
     #    }
     #  })
     

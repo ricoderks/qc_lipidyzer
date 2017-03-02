@@ -18,8 +18,8 @@ shinyUI(fluidPage(
                                          "Lipid class composition" = "Lipid Class Composition"),
                              selected = "Lipid Class Concentration"),
                  conditionalPanel(condition = "input.select_sheet == 'Lipid Species Concentration' || input.select_sheet == 'Lipid Species Composition'",
-                                  selectInput(inputId = "select_species",
-                                              label = "Select a species :",
+                                  selectInput(inputId = "select_class",
+                                              label = "Select a lipid class :",
                                               choices = c("CE" = "CE",
                                                           "DAG" = "DAG",
                                                           "FFA" = "FFA",
@@ -43,17 +43,29 @@ shinyUI(fluidPage(
               plotOutput("my_plot", height = "550px")),
         tabPanel("Help",
                  h3("Introduction"),
-                 p("This is a first version of the web application to visualize the QC samples from a Lipidyzer study. 
-                   There are some prerequisites you have to fulfill :"),
-                 p("* The order of the processing of the files is alphabetically."),
-                 p("* QC samples ID needs to start with ", strong("QC-"), "."),
-                 p("* The sheetnames in the xlsx file should not be changed. The names are :",
-                   HTML("<ul><li>Lipid Species Concentration</li><li>Lipid Species Composition</li><li>Lipid Class Concentration</li>
-<li>Lipid Class Composition</li><li>Fatty Acid Concentration</li><li>Fatty Acid Composition</li>
+                 p("This is a first version of the web application to visualize the QC samples from a Lipidyzer study."),
+                 p(strong("Prerequisites :")),
+                 p(HTML("<ul>
+                   <li>The order of the processing of the files is alphabetically.</li>
+                   <li>QC samples ID needs to start with <b>QC-</b> </li>
+                   <li>The sheetnames in the xlsx file should not be changed. The names are :</li>
+                   <ul>
+                        <li>Lipid Species Concentrations</li>
+                        <li>Lipid Species Composition</li>
+                        <li>Lipid Class Concentration</li>
+                        <li>Lipid Class Composition</li>
+                        <li>Fatty Acid Concentration</li>
+                        <li>Fatty Acid Composition</li>
+                        </ul>
+                    </ul>")),
+                 h3("Start"),
+                 p(HTML("<ul>
+                        <li>To show the QC results from a Lipidyzer study load the Excel output file (.xlsx). Multiple files at once is possible.</li>
+                        <li>The QC spike samples will be automatically remove from the samples.</li>
+                        <li>Select which sheet from the Excel file you want to see (default Lipid Class Concentration).</li>
+                        <li>If you select a <b>Lipid Species *</b> sheet, select which lipid class you want to see (default CE).</li>
+                        <li>If you select a <b>Lipid Species *</b> sheet it is possible to plot the individual species by clicking on the row in the table. Multiple selections is possible.</li>
                         </ul>")),
-                 br(),
-                 p("To show the QC results from the Lipidyzer study load the Excel output files (.xlsx). 
-                   The QC spike samples will be automatically remove from the samples."),
                  br(),
                  br(),
                  br()))
