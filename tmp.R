@@ -19,56 +19,30 @@ sheet_names <- c("Lipid Species Concentrations",
                 "Fatty Acid Concentration",
                 "Fatty Acid Composition")
 
+aap <- data_frame(datapath = rep(myfiles$datapath, each = length(sheet_names)), sheet_names = rep(sheet_names, nrow(myfiles)))
+
 # this is not really great!!
-aap <- myfiles %>%
-  as.tbl %>%
-  mutate(batch = 1:n()) %>%
-  mutate(LS_conc = map(.x = datapath,
-                       .f = ~ read_excel(path = .x,
-                                         sheet = sheet_names[1],
-                                         col_names = TRUE,
-                                         na = "."))) %>%
-  mutate(LS_comp = map(.x = datapath,
-                       .f = ~ read_excel(path = .x,
-                                         sheet = sheet_names[2],
-                                         col_names = TRUE,
-                                         na = "."))) %>%
-  mutate(LC_conc = map(.x = datapath,
-                      .f = ~ read_excel(path = .x,
-                                        sheet = sheet_names[3],
+aap <-aap %>%
+  mutate(batch = rep(seq(1, length(unique(datapath))), each = length(unique(sheet_names)))) %>%
+  mutate(data = map2(.x = datapath,
+                     .y = sheet_names,
+                     .f = ~ read_excel(path = .x,
+                                        sheet = .y,
                                         col_names = TRUE,
-                                        na = "."))) %>%
-  mutate(LC_comp = map(.x = datapath,
-                       .f = ~ read_excel(path = .x,
-                                         sheet = sheet_names[4],
-                                         col_names = TRUE,
-                                         na = "."))) %>%
-  mutate(FA_conc = map(.x = datapath,
-                        .f = ~ read_excel(path = .x,
-                                          sheet = sheet_names[5],
-                                          col_names = TRUE,
-                                          na = "."))) %>%
-  mutate(FA_comp = map(.x = datapath,
-                        .f = ~ read_excel(path = .x,
-                                          sheet = sheet_names[6],
-                                          col_names = TRUE,
-                                          na = "."))) %>%
-  # only the QC's
-  mutate_at(vars(matches("^[LF][SCA]")),
-            funs(map(., ~ filter(.x, ! (grepl(Name, pattern = "QC_SPIKE*")) & grepl(Name, pattern = "QC-*"))))) 
+                                        na = ".") %>%
+                       filter(! (grepl(Name, pattern = "QC_SPIKE*")) & grepl(Name, pattern = "QC-*")))) %>% # remove QC spike and select the normal QC samples
+  mutate(data = map2(.x = data,
+                     .y = batch,
+                     .f = ~ mutate(.x, batch = .y)))
 
-aap <- aap %>% select(-name, -datapath) %>% mutate(batch = as.factor(batch))
+all <- aap %>%
+  filter(sheet_names == sheet_names[3]) %>%
+  select(data) %>%
+  unnest
+  
 
-all <- tibble(LS_conc = list(unnest(aap, LS_conc)),
-              LS_comp = list(unnest(aap, LS_comp)),
-              LC_conc = list(unnest(aap, LC_conc)),
-              LC_comp = list(unnest(aap, LC_comp)),
-              FA_conc = list(unnest(aap, FA_conc)),
-              FA_comp = list(unnest(aap, FA_comp)))
 
 p <- all %>% 
-  select_("LC_comp") %>%
-  unnest %>%
   gather(lipid_class, concentration, -Name, -batch)  %>%
   mutate(Name = factor(Name, levels = unique(Name)),
          lipid_class = as.factor(lipid_class),
