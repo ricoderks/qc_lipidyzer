@@ -36,32 +36,43 @@ shinyServer(
     })
 
     df <- reactive({
-      # read the excel files
+      # read all excel files
       if (is.null(myfiles())) {
         return(NULL)
       } else {
-        myparams <- params()
-        # read all data from file
-        # merge into 1 data frame
-        # do the stats
-        df <- myfiles()$name %>%
-          data_frame(filenames = .) %>%
-          as.tbl %>%
-          mutate(batch = 1:n()) %>%
-          mutate(data = map2(.x = myfiles()$datapath,
-                             .y = batch,
+        # add datapath and sheet_names to dataframe
+        df <- data_frame(datapath = rep(myfiles()$datapath, each = length(sheet_names)), 
+                         sheet_names = rep(sheet_names, nrow(myfiles())))
+        # read all the files
+        df <- df %>%
+          mutate(batch = rep(seq(1, length(unique(datapath))), each = length(unique(sheet_names)))) %>%
+          mutate(data = map2(.x = datapath,
+                             .y = sheet_names,
                              .f = ~ read_excel(path = .x,
-                                               sheet = myparams$sheetname,
+                                               sheet = .y,
                                                col_names = TRUE,
                                                na = ".") %>%
-                               filter(! (grepl(Name, pattern = "QC_SPIKE*")) & grepl(Name, pattern = "QC-*")) %>%
-                               mutate(batch = .y))) %>%
-          mutate(data = map(.x = data,
-                            .f = ~ data.frame(.x)))     # join_all can not handle tibbles!!))
-
-        all <- plyr::join_all(df$data, type = "full")
+                               filter(! (grepl(Name, pattern = "QC_SPIKE*")) & grepl(Name, pattern = "QC-*")))) %>% # remove QC spike and select the normal QC samples
+          mutate(data = map2(.x = data,
+                             .y = batch,
+                             .f = ~ mutate(.x, batch = .y)))
+      }
+  })
+    
+    all <- reactive({
+      if (is.null(df())) {
+        return(NULL)
+      } else {
+        # get the parameters
+        myparams <- params()
         
-        # looking at the lipid classes
+        # merge into one dataframe
+        all <- df() %>%
+          filter(sheet_names == myparams$sheetname) %>%
+          select(data) %>%
+          unnest
+        
+        # looking at the lipid classes or species
         switch(myparams$type,
                "class" = {all %>%
                    gather(lipid, value, -Name, -batch)  %>%
@@ -81,15 +92,15 @@ shinyServer(
     })
 
     output$my_table <- DT::renderDataTable({
-      if (is.null(df())) {
+      if (is.null(all())) {
         return(NULL)
       } else {
         myparams <- params()
         #do the stats
-        df <- switch(myparams$type,
-                     "class" = df(),
-                     "species" = df() %>% filter(lipid_class == input$select_class))
-        df %>%
+        all <- switch(myparams$type,
+                     "class" = all(),
+                     "species" = all() %>% filter(lipid_class == input$select_class))
+        all %>%
           select(lipid, value, Name) %>%
           group_by(lipid) %>%
           summarise(mean = mean(value, na.rm = TRUE),
@@ -102,22 +113,22 @@ shinyServer(
     })
 
     output$my_plot <- renderPlot({
-      if (is.null(df())) {
+      if (is.null(all())) {
         return(NULL)
       } else {
         myparams <- params()
-        df <- switch(myparams$type,
-                     "class" = df(),
+        all <- switch(myparams$type,
+                     "class" = all(),
                      "species" = {
                        if (length(input$my_table_rows_selected) == 0) {
-                         df <- df() %>% filter(lipid_class == input$select_class) 
+                         all <- all() %>% filter(lipid_class == input$select_class) 
                        } else {
-                         df <- df() %>% filter(lipid_class == input$select_class)
-                         x <- levels(droplevels(df$lipid))[input$my_table_rows_selected]
-                         df %>% filter(lipid %in% x)
+                         all <- all() %>% filter(lipid_class == input$select_class)
+                         x <- levels(droplevels(all$lipid))[input$my_table_rows_selected]
+                         all %>% filter(lipid %in% x)
                        }
                      })
-        p <- df %>%
+        p <- all %>%
           ggplot() +
           geom_point(aes(x = Name,
                          y = value,
