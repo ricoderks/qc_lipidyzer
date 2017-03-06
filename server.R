@@ -8,6 +8,13 @@ library(DT)
 library(purrr)
 library(tibble)
 
+sheet_names <- c("Lipid Species Concentrations",
+                 "Lipid Species Composition",
+                 "Lipid Class Concentration",
+                 "Lipid Class Composition",
+                 "Fatty Acid Concentration",
+                 "Fatty Acid Composition")
+
 shinyServer(
   function(input, output) {
     params <- reactive({
