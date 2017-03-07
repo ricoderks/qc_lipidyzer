@@ -24,6 +24,12 @@ shinyServer(
              "Lipid Class Concentration" = list(sheetname = "Lipid Class Concentration", ylab = "Concentration", col_title = "Lipid class", row_selection = "none", type = "class"),
              "Lipid Class Composition" = list(sheetname = "Lipid Class Composition", ylab = "Composition", col_title = "Lipid class", row_selection = "none", type = "class"))
     })
+    
+    params_qc <- reactive({
+      switch(input$select_qc,
+             "QC_normal" = list(qc = "QC-[0-9]*"),
+             "QC_spike" = list(qc = "QC_SPIKE*"))
+    })
 
     myfiles <- reactive({
       # get the filenames
@@ -47,6 +53,7 @@ shinyServer(
       if (is.null(myfiles())) {
         return(NULL)
       } else {
+        #myparams_qc <- params_qc()
         # add datapath and sheet_names to dataframe
         df <- data_frame(datapath = rep(myfiles()$datapath, each = length(sheet_names)), 
                          sheet_names = rep(sheet_names, nrow(myfiles())))
@@ -58,8 +65,9 @@ shinyServer(
                              .f = ~ read_excel(path = .x,
                                                sheet = .y,
                                                col_names = TRUE,
-                                               na = ".") %>%
-                               filter(! (grepl(Name, pattern = "QC_SPIKE*")) & grepl(Name, pattern = "QC-*")))) %>% # remove QC spike and select the normal QC samples
+                                               na = "."))) %>%
+                               #filter(! (grepl(Name, pattern = "QC_SPIKE*")) & grepl(Name, pattern = "QC-*")))) %>% # remove QC spike and select the normal QC samples
+                               #filter(grepl(Name, pattern = myparams_qc$qc)))) %>% # remove QC spike and select the normal QC samples
           mutate(data = map2(.x = data,
                              .y = batch,
                              .f = ~ mutate(.x, batch = .y)))
@@ -72,12 +80,14 @@ shinyServer(
       } else {
         # get the parameters
         myparams <- params()
+        myparams_qc <- params_qc()
         
         # merge into one dataframe
         all <- df() %>%
           filter(sheet_names == myparams$sheetname) %>%
           select(data) %>%
-          unnest
+          unnest %>%
+          filter(grepl(Name, pattern = myparams_qc$qc))
         
         # looking at the lipid classes or species
         switch(myparams$type,
