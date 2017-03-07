@@ -22,7 +22,9 @@ shinyServer(
              "Lipid Species Concentration" = list(sheetname = "Lipid Species Concentrations", ylab = "Concentration", col_title = "Lipid species",row_selection = "multiple", type = "species"),
              "Lipid Species Composition" = list(sheetname = "Lipid Species Composition", ylab = "Composition", col_title = "Lipid species", row_selection = "multiple", type = "species"),
              "Lipid Class Concentration" = list(sheetname = "Lipid Class Concentration", ylab = "Concentration", col_title = "Lipid class", row_selection = "none", type = "class"),
-             "Lipid Class Composition" = list(sheetname = "Lipid Class Composition", ylab = "Composition", col_title = "Lipid class", row_selection = "none", type = "class"))
+             "Lipid Class Composition" = list(sheetname = "Lipid Class Composition", ylab = "Composition", col_title = "Lipid class", row_selection = "none", type = "class"),
+             "Fatty Acid Concentration" = list(sheetname = "Fatty Acid Concentration", ylab = "Concentration", col_title = "FA species", row_selection = "multiple", type = "fa_species"),
+             "Fatty Acid Composition" = list(sheetname = "Fatty Acid Composition", ylab = "Composition", col_title = "FA species", row_selection = "multiple", type = "fa_species"))
     })
     
     params_qc <- reactive({
@@ -102,7 +104,17 @@ shinyServer(
                                                        replacement = ""))) %>%
                    mutate(Name = factor(Name, levels = unique(Name)),
                           lipid = factor(lipid, levels = unique(lipid)),
-                          batch = as.factor(batch))})
+                          batch = as.factor(batch))},
+               "fa_species" = {
+                 all %>%
+                   gather(lipid, value, -Name, -batch)  %>%
+                   mutate(lipid_class = as.factor(gsub(x = lipid,
+                                                       pattern = "[\\(](FA).*",
+                                                       replacement = ""))) %>%
+                   mutate(Name = factor(Name, levels = unique(Name)),
+                          lipid = as.factor(lipid),
+                          batch = as.factor(batch))
+               })
       }
     })
 
@@ -114,7 +126,8 @@ shinyServer(
         #do the stats
         all <- switch(myparams$type,
                      "class" = all(),
-                     "species" = all() %>% filter(lipid_class == input$select_class))
+                     "species" = all() %>% filter(lipid_class == input$select_class),
+                     "fa_species" = all() %>% filter(lipid_class == input$select_class))
         all %>%
           select(lipid, value, Name) %>%
           group_by(lipid) %>%
@@ -141,8 +154,15 @@ shinyServer(
                          all <- all() %>% filter(lipid_class == input$select_class)
                          x <- levels(droplevels(all$lipid))[input$my_table_rows_selected]
                          all %>% filter(lipid %in% x)
-                       }
-                     })
+                       }},
+                       "fa_species" = {
+                         if (length(input$my_table_rows_selected) == 0) {
+                           all <- all() %>% filter(lipid_class == input$select_class) 
+                         } else {
+                           all <- all() %>% filter(lipid_class == input$select_class)
+                           x <- levels(droplevels(all$lipid))[input$my_table_rows_selected]
+                           all %>% filter(lipid %in% x)
+                         }})
         p <- all %>%
           ggplot() +
           geom_point(aes(x = Name,
