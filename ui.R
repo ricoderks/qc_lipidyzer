@@ -76,6 +76,8 @@ shinyUI(fluidPage(
                         <li>If you select a <b>Lipid Species *</b> sheet, select which lipid class you want to see (default CE).</li>
                         <li>If you select a <b>Lipid Species *</b> sheet it is possible to plot the individual species by clicking on the row in the table. Multiple selections is possible.</li>
                         </ul>")),
+                 h3("Issues"),
+                 p("If you have any issue please send me an email or go to the ", a("issue tracker.", href = "https://git.lumc.nl/rjederks/qc_lipidyzer/issues")),
                  br(),
                  br(),
                  br()))
