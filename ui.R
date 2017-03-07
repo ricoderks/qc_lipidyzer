@@ -8,8 +8,13 @@ shinyUI(fluidPage(
   sidebarLayout(
     sidebarPanel(width = 3,
                  fileInput("result_files", 
-                           "Select XLSX files from lipidyzer",
+                           "Select XLSX files from lipidyzer :",
                            multiple = TRUE),
+                 selectInput(inputId = "select_qc",
+                             label = "Select which QC's you want to see :",
+                             choices = c("normal QC" = "QC_normal",
+                                         "QC spike" = "QC_spike"),
+                             selected = "QC_normal"),
                  selectInput(inputId = "select_sheet",
                              label = "Select a sheet to view :",
                              choices = c("Lipid species concentration" = "Lipid Species Concentration",
@@ -63,8 +68,8 @@ shinyUI(fluidPage(
                  h3("Start"),
                  p(HTML("<ul>
                         <li>To show the QC results from a Lipidyzer study load the Excel output file (.xlsx). Multiple files at once is possible.</li>
-                        <li>The QC spike samples will be automatically remove from the samples.</li>
                         <li>Select which sheet from the Excel file you want to see (default Lipid Class Concentration).</li>
+                        <li>Select which QC sample you want to see (default is the normal QC samples)</li>
                         <li>If you select a <b>Lipid Species *</b> sheet, select which lipid class you want to see (default CE).</li>
                         <li>If you select a <b>Lipid Species *</b> sheet it is possible to plot the individual species by clicking on the row in the table. Multiple selections is possible.</li>
                         </ul>")),
