@@ -7,6 +7,16 @@ library(DT)
 library(purrr)
 library(tibble)
 
+###################
+# a new labeler function, to show the RSD value in the facet strip
+label_rsd <- function(value) {
+  value <- paste0("RSD: ", value, "%")
+  #value <- sprintf("RSD: %.1f%%", value)
+}
+
+###################
+
+
 myfiles <- data.frame(name = c("Results_BATCH1.xlsx", "Results_BATCH2.xlsx", "Results_BATCH3.xlsx"), 
                       datapath = c("./data/Results_BATCH1.xlsx", "./data/Results_BATCH2.xlsx", "./data/Results_BATCH3.xlsx"))
 myfiles$datapath <- as.character(myfiles$datapath)
@@ -25,9 +35,9 @@ aap %>% slice(1:12) -> aap
 
 aap <-aap %>%
   # this is for the line graph
-  #mutate(batch = rep(seq(1, length(unique(datapath))), each = length(unique(sheet_names)))) %>% 
+  mutate(batch = rep(seq(1, length(unique(datapath))), each = length(unique(sheet_names)))) %>% 
   # this is for the bar graph
-  mutate(batch = rep(c(1, 2), each = length(unique(sheet_names)), length.out = length(unique(datapath)) * length(unique(sheet_names)))) %>%
+  mutate(batch_bar = rep(c(1, 2), each = length(unique(sheet_names)), length.out = length(unique(datapath)) * length(unique(sheet_names)))) %>%
   mutate(data = map2(.x = datapath,
                      .y = sheet_names,
                      .f = ~ read_excel(path = .x,
@@ -37,7 +47,10 @@ aap <-aap %>%
                        filter(! (grepl(Name, pattern = "QC_SPIKE*")) & grepl(Name, pattern = "QC-*")))) %>% # remove QC spike and select the normal QC samples
   mutate(data = map2(.x = data,
                      .y = batch,
-                     .f = ~ mutate(.x, batch = .y)))
+                     .f = ~ mutate(.x, batch = .y))) %>%
+  mutate(data = map2(.x = data,
+                     .y = batch_bar,
+                     .f = ~ mutate(.x, batch_bar = .y)))
 
 all <- aap %>%
   filter(sheet_names == sheet_names[3]) %>%
@@ -46,7 +59,7 @@ all <- aap %>%
   
 ## line grah
 p <- all %>% 
-  gather(lipid_class, concentration, -Name, -batch)  %>%
+  gather(lipid_class, concentration, -Name, -batch, -batch_bar)  %>%
   mutate(Name = factor(Name, levels = unique(Name)),
          lipid_class = as.factor(lipid_class),
          batch = as.factor(batch)) %>%
@@ -74,20 +87,21 @@ p
 ## bar graph, color by zscore
 
 all %>% 
-  gather(lipid_class, concentration, -Name, -batch)  %>%
+  gather(lipid_class, concentration, -Name, -batch, -batch_bar)  %>%
   mutate(Name = factor(Name, levels = unique(Name)),
          lipid_class = as.factor(lipid_class),
-         batch = as.factor(batch)) %>%
+         batch = as.factor(batch),
+         batch_bar = as.factor(batch_bar)) %>%
   group_by(lipid_class) %>%
   mutate(mean = mean(concentration, na.rm = TRUE),
          stdev = sd(concentration, na.rm = TRUE),
          zscore = abs((concentration - mean) / stdev),
-         RSD = stdev / mean * 100) %>%
+         RSD = round((stdev / mean * 100), digits = 1 )) %>%
   ggplot() +
   geom_bar(aes(x = Name, 
                y = concentration,
                fill = zscore,
-               linetype = batch),
+               linetype = batch_bar),
            stat = "identity",
            color = "black") +
   geom_line(aes(x = Name,
