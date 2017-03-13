@@ -215,7 +215,7 @@ shinyServer(
                           y = mean,
                           group = 1),
                       color = "black",
-                      size = 1.5) +
+                      size = 1) +
             facet_wrap(~ lipid, ncol = 3, scales = "free_y") +
             scale_fill_gradientn(colors = c("green", "yellow", "red"),
                                  values = scales::rescale(x = c(0, 2, 4))) +     # needs to be scaled between 0 and 1!!!
