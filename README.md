@@ -7,4 +7,4 @@ http://5-para-12-0152:3838/qc_lipidyzer/
 
 # Issues
 
-Issues can be submitted through the issue page.
+Issues can be submitted through the issue page or by emailing me.
