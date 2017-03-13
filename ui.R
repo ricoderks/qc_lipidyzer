@@ -8,15 +8,15 @@ shinyUI(fluidPage(
   sidebarLayout(
     sidebarPanel(width = 3,
                  fileInput("result_files", 
-                           "Select XLSX files from lipidyzer :",
+                           "Select XLSX files from lipidyzer:",
                            multiple = TRUE),
                  selectInput(inputId = "select_qc",
-                             label = "Select which QC's you want to see :",
+                             label = "Select which QC's you want to see:",
                              choices = c("normal QC" = "QC_normal",
                                          "QC spike" = "QC_spike"),
                              selected = "QC_normal"),
                  selectInput(inputId = "select_sheet",
-                             label = "Select a sheet to view :",
+                             label = "Select a sheet to view:",
                              choices = c("Lipid species concentration" = "Lipid Species Concentration",
                                          "Lipid species composition" = "Lipid Species Composition",
                                          "Lipid class concentration" = "Lipid Class Concentration",
@@ -26,7 +26,7 @@ shinyUI(fluidPage(
                              selected = "Lipid Class Concentration"),
                  conditionalPanel(condition = "input.select_sheet == 'Lipid Species Concentration' || input.select_sheet == 'Lipid Species Composition' || input.select_sheet == 'Fatty Acid Concentration' || input.select_sheet == 'Fatty Acid Composition'",
                                   selectInput(inputId = "select_class",
-                                              label = "Select a lipid class :",
+                                              label = "Select a lipid class:",
                                               choices = c("CE" = "CE",
                                                           "DAG" = "DAG",
                                                           "FFA" = "FFA",
@@ -37,7 +37,14 @@ shinyUI(fluidPage(
                                                           "SM" = "SM",
                                                           "TAG" = "TAG"),
                                               selected = "CE")
-                                  )
+                                  ),
+                 conditionalPanel(condition = "input.select_sheet == 'Lipid Class Concentration' || input.select_sheet == 'Lipid Class Composition'",
+                                  selectInput(inputId = "select_graph",
+                                              label = "Select how to show the graph:",
+                                              choices = c("Line" = "line",
+                                                          "Bar" = "bar"),
+                                              selected = "line")
+                 )
     ),
     
     # show my stuff
@@ -71,9 +78,10 @@ shinyUI(fluidPage(
                  h3("Start"),
                  p(HTML("<ul>
                         <li>To show the QC results from a Lipidyzer study load the Excel output file (.xlsx). Multiple files at once is possible.</li>
-                        <li>Select which sheet from the Excel file you want to see (default Lipid Class Concentration).</li>
-                        <li>Select which QC sample you want to see (default is the normal QC samples).</li>
-                        <li>If you select a <b>Lipid Species *</b> sheet, select which lipid class you want to see (default CE).</li>
+                        <li>Select which sheet from the Excel file you want to see (default <i>Lipid Class Concentration</i>).</li>
+                        <li>Select which QC sample you want to see (default is the <i>normal QC samples</i>).</li>
+                        <li>If you select a <b>Lipid Class *</b> sheet, you can choose between a line graph or bar graph.</li>
+                        <li>If you select a <b>Lipid Species *</b> sheet, select which lipid class you want to see (default <i>CE</i>).</li>
                         <li>If you select a <b>Lipid Species *</b> sheet it is possible to plot the individual species by clicking on the row in the table. Multiple selections is possible.</li>
                         </ul>")),
                  h3("Issues"),
