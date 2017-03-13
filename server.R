@@ -62,6 +62,7 @@ shinyServer(
         # read all the files
         df <- df %>%
           mutate(batch = rep(seq(1, length(unique(datapath))), each = length(unique(sheet_names)))) %>%
+          mutate(batch_bar = rep(c(1, 2), each = length(unique(sheet_names)), length.out = length(unique(sheet_names)) * length(unique(datapath)))) %>%
           mutate(data = map2(.x = datapath,
                              .y = sheet_names,
                              .f = ~ read_excel(path = .x,
@@ -70,7 +71,10 @@ shinyServer(
                                                na = "."))) %>%
           mutate(data = map2(.x = data,
                              .y = batch,
-                             .f = ~ mutate(.x, batch = .y)))
+                             .f = ~ mutate(.x, batch = .y))) %>%
+          mutate(data = map2(.x = data,
+                             .y = batch_bar,
+                             .f = ~ mutate(.x, batch_bar = .y)))
       }
   })
     
@@ -92,10 +96,11 @@ shinyServer(
         # looking at the lipid classes or species
         switch(myparams$type,
                "class" = {all %>%
-                   gather(lipid, value, -Name, -batch)  %>%
+                   gather(lipid, value, -Name, -batch, -batch_bar)  %>%
                    mutate(Name = factor(Name, levels = unique(Name)),
                           lipid = as.factor(lipid),
-                          batch = as.factor(batch)) },
+                          batch = as.factor(batch),
+                          batch_bar = as.factor(batch_bar)) },
                "species" = {
                  all %>%
                    gather(lipid, value, -Name, -batch)  %>%
@@ -145,9 +150,12 @@ shinyServer(
         return(NULL)
       } else {
         myparams <- params()
+        mygraph <- input$select_graph
+        
         all <- switch(myparams$type,
                      "class" = all(),
                      "species" = {
+                       mygraph <- "line"
                        if (length(input$my_table_rows_selected) == 0) {
                          all <- all() %>% filter(lipid_class == input$select_class) 
                        } else {
@@ -156,6 +164,7 @@ shinyServer(
                          all %>% filter(lipid %in% x)
                        }},
                        "fa_species" = {
+                         mygraph <- "line"
                          if (length(input$my_table_rows_selected) == 0) {
                            all <- all() %>% filter(lipid_class == input$select_class) 
                          } else {
@@ -163,29 +172,57 @@ shinyServer(
                            x <- levels(droplevels(all$lipid))[input$my_table_rows_selected]
                            all %>% filter(lipid %in% x)
                          }})
-        p <- all %>%
-          ggplot() +
-          geom_point(aes(x = Name,
-                         y = value,
-                         color = lipid,
-                         shape = batch),
-                     size = 3) +
-          geom_path(aes(x = Name,
-                        y = value,
-                        color = lipid,
-                        group = lipid))
-        if (nrow(myfiles()) == 1) {
-          p <- p + guides(color = "none",
-                          shape = "none")
+        if (mygraph == "line") {
+          p <- all %>%
+            ggplot() +
+            geom_point(aes(x = Name,
+                           y = value,
+                           color = lipid,
+                           shape = batch),
+                       size = 3) +
+            geom_path(aes(x = Name,
+                          y = value,
+                          color = lipid,
+                          group = lipid))
+          if (nrow(myfiles()) == 1) {
+            p <- p + guides(color = "none",
+                            shape = "none")
+          } else {
+            p <- p + guides(color = "none",
+                            shape = guide_legend(title = "Batch")) 
+          }
+          p <- p + theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+            xlab("QC sample ID") +
+            ylab(params()$ylab)
+          if (myparams$type == "class") {
+            p <- p + facet_wrap(~ lipid, ncol = 3, scales = "free_y")
+          }
         } else {
-          p <- p + guides(color = "none",
-                          shape = guide_legend(title = "Batch")) 
-        }
-        p <- p + theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-          xlab("QC sample ID") +
-          ylab(params()$ylab)
-        if (myparams$type == "class") {
-          p <- p + facet_wrap(~ lipid, ncol = 3, scales = "free_y")
+          p <- all %>%
+            group_by(lipid) %>%
+            mutate(mean = mean(value, na.rm = TRUE),
+                   stdev = sd(value, na.rm = TRUE),
+                   zscore = abs((value - mean) / stdev),
+                   RSD = round((stdev / mean * 100), digits = 1 )) %>%
+            ggplot() +
+            geom_bar(aes(x = Name, 
+                         y = value,
+                         fill = zscore,
+                         linetype = batch_bar),
+                     stat = "identity",
+                     color = "black") +
+            geom_line(aes(x = Name,
+                          y = mean,
+                          group = 1),
+                      color = "black",
+                      size = 1.5) +
+            facet_wrap(~ lipid, ncol = 3, scales = "free_y") +
+            scale_fill_gradientn(colors = c("green", "yellow", "red"),
+                                 values = scales::rescale(x = c(0, 2, 4))) +     # needs to be scaled between 0 and 1!!!
+            guides(linetype = "none") +
+            theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+            xlab("QC sample ID") +
+            ylab(params()$ylab)
         }
         p
       }
