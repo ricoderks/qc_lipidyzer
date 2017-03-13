@@ -52,7 +52,7 @@ shinyUI(fluidPage(
       tabsetPanel(
         tabPanel("Results",
         #textOutput("my_text"),
-              DT::dataTableOutput("my_table"),
+              div(DT::dataTableOutput("my_table"), style = "font-size: 80%"),
               br(),
               plotOutput("my_plot", height = "550px")),
         tabPanel("Help",
