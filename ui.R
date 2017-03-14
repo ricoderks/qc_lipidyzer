@@ -44,7 +44,8 @@ shinyUI(fluidPage(
                                                                "Bar" = "bar"),
                                                    selected = "line"))),
                column(8,
-                      div(DT::dataTableOutput("my_table"), style = "font-size: 80%")),
+                      div(DT::dataTableOutput("my_table"), style = "font-size: 80%"))),
+             fluidRow(
                column(12,
                       plotOutput("my_plot", height = "650px")))),
     tabPanel("Help",
