@@ -1,0 +1,206 @@
+---
+title: "QC lipidyzer report"
+author: "Rico Derks"
+date: "14 March 2017"
+output: 
+  html_document:
+    code_folding: hide
+    toc: yes
+    toc_float: yes
+params:
+  myfiles: NA
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(ggplot2)
+library(readxl)
+library(purrr)
+
+myfiles <- params$myfiles
+
+sheet_names <- c("Lipid Species Concentrations",
+                 "Lipid Species Composition",
+                 "Lipid Class Concentration",
+                 "Lipid Class Composition",
+                 "Fatty Acid Concentration",
+                 "Fatty Acid Composition")
+```
+
+# Introduction
+
+This report will give an overview of the QC samples from a lipidyzer study.
+
+```{r read_all_data}
+df <- data_frame(datapath = rep(myfiles$datapath, each = length(sheet_names)), 
+                 sheet_names = rep(sheet_names, nrow(myfiles)))
+df <- df %>%
+  mutate(batch = rep(seq(1, length(unique(datapath))), each = length(unique(sheet_names)))) %>%
+  mutate(batch_bar = rep(c(1, 2), each = length(unique(sheet_names)), length.out = length(unique(sheet_names)) * length(unique(datapath)))) %>%
+  mutate(data = map2(.x = datapath,
+                     .y = sheet_names,
+                     .f = ~ read_excel(path = .x,
+                                       sheet = .y,
+                                       col_names = TRUE,
+                                       na = "."))) %>%
+  mutate(data = map2(.x = data,
+                     .y = batch,
+                     .f = ~ mutate(.x, batch = .y))) %>%
+  mutate(data = map2(.x = data,
+                     .y = batch_bar,
+                     .f = ~ mutate(.x, batch_bar = .y)))
+```
+
+# Lipid classes
+
+## Concentration
+
+```{r class_concentration}
+# filter out only what I want
+class <- df %>%
+  filter(sheet_names == sheet_names[3]) %>%
+  select(data) %>%
+  unnest %>%
+  filter(grepl(Name, pattern = "QC-[0-9]*")) %>%
+  gather(lipid, value, -Name, -batch, -batch_bar)  %>%
+  mutate(Name = factor(Name, levels = unique(Name)),
+         lipid = as.factor(lipid),
+         batch = as.factor(batch),
+         batch_bar = as.factor(batch_bar))
+```
+
+```{r class_concentration_table}
+class  %>%
+  select(lipid, value, Name) %>%
+  group_by(lipid) %>%
+  summarise(mean = mean(value, na.rm = TRUE),
+            stdev = sd(value, na.rm = TRUE),
+            RSD = stdev / mean * 100) %>%
+  DT::datatable(colnames = c("Lipid class", "Mean", "St.dev.", "RSD [%]"),
+                options = list(dom = "pt"), selection = "none") %>%             # remove the search field
+  formatRound(columns = c("mean", "stdev", "RSD"), digits = 2)
+```
+
+```{r class_concentration_line}
+class %>%
+  ggplot +
+  geom_point(aes(x = Name,
+                 y = value,
+                 color = lipid,
+                 shape = batch),
+             size = 3) +
+  geom_path(aes(x = Name,
+                y = value,
+                color = lipid,
+                group = lipid)) +
+  guides(color = "none",
+         shape = guide_legend(title = "Batch")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  xlab("QC sample ID") +
+  ylab("Concentration") +
+  facet_wrap(~ lipid, ncol = 3, scales = "free_y")
+```
+
+## Composition
+
+```{r class_composition}
+# filter out only what I want
+class <- df %>%
+  filter(sheet_names == sheet_names[4]) %>%
+  select(data) %>%
+  unnest %>%
+  filter(grepl(Name, pattern = "QC-[0-9]*")) %>%
+  gather(lipid, value, -Name, -batch, -batch_bar)  %>%
+  mutate(Name = factor(Name, levels = unique(Name)),
+         lipid = as.factor(lipid),
+         batch = as.factor(batch),
+         batch_bar = as.factor(batch_bar))
+```
+
+```{r class_composition_table}
+class  %>%
+  select(lipid, value, Name) %>%
+  group_by(lipid) %>%
+  summarise(mean = mean(value, na.rm = TRUE),
+            stdev = sd(value, na.rm = TRUE),
+            RSD = stdev / mean * 100) %>%
+  DT::datatable(colnames = c("Lipid class", "Mean", "St.dev.", "RSD [%]"),
+                options = list(dom = "pt"), selection = "none") %>%             # remove the search field
+  formatRound(columns = c("mean", "stdev", "RSD"), digits = 2)
+```
+
+```{r class_composition_line}
+class %>%
+  ggplot +
+  geom_point(aes(x = Name,
+                 y = value,
+                 color = lipid,
+                 shape = batch),
+             size = 3) +
+  geom_path(aes(x = Name,
+                y = value,
+                color = lipid,
+                group = lipid)) +
+  guides(color = "none",
+         shape = guide_legend(title = "Batch")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  xlab("QC sample ID") +
+  ylab("Composition") +
+  facet_wrap(~ lipid, ncol = 3, scales = "free_y")
+```
+
+# Lipid species
+
+## Concentration
+
+```{r species_concentration}
+# filter out only what I want
+species <- df %>%
+  select(data) %>%
+  unnest %>%
+  filter(grepl(Name, pattern = "QC-[0-9]*")) %>%
+  gather(lipid, value, -Name, -batch)  %>%
+  mutate(lipid_class = as.factor(gsub(x = lipid,
+                                      pattern = "[\\(]{0,1}[0-9.].*",
+                                      replacement = ""))) %>%
+  mutate(Name = factor(Name, levels = unique(Name)),
+         lipid = factor(lipid, levels = unique(lipid)),
+         batch = as.factor(batch))
+head(species)
+```
+
+```{r species_concentration_table}
+species  %>%
+  filter(lipid_class == "CE") %>%
+  select(lipid, value, Name) %>%
+  group_by(lipid) %>%
+  summarise(mean = mean(value, na.rm = TRUE),
+            stdev = sd(value, na.rm = TRUE),
+            RSD = stdev / mean * 100) %>%
+  DT::datatable(colnames = c("Lipid species", "Mean", "St.dev.", "RSD [%]"),
+                options = list(dom = "pt"), selection = "none") %>%             # remove the search field
+  formatRound(columns = c("mean", "stdev", "RSD"), digits = 2)
+```
+
+```{r species_concentration_line}
+species %>%
+  filter(lipid_class == "CE") %>%
+  ggplot +
+  geom_point(aes(x = Name,
+                 y = value,
+                 color = lipid,
+                 shape = batch),
+             size = 3) +
+  geom_path(aes(x = Name,
+                y = value,
+                color = lipid,
+                group = lipid)) +
+  guides(color = "none",
+         shape = guide_legend(title = "Batch")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  xlab("QC sample ID") +
+  ylab("Concentration")
+```
+
+## Composition
