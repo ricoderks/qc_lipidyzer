@@ -50,6 +50,28 @@ shinyServer(
       }
     })
 
+    output$fileUploaded <- reactive({
+      return(!is.null(myfiles()))
+    })
+    outputOptions(output, "fileUploaded", suspendWhenHidden = FALSE)
+    
+    output$report <- downloadHandler(
+      filename = "report.html",
+      content = function(file) {
+        tempReport <- file.path(tempdir(), "report.Rmd")
+        file.copy(from = "report.Rmd", to = tempReport, overwrite = TRUE)
+        
+        params <- list(myfiles = myfiles())
+        
+        withProgress(message = "Generating report..." ,{
+        rmarkdown::render(input = tempReport, 
+                          output_file = file,
+                          params = params,
+                          envir = new.env(parent = globalenv()))
+        })
+      }
+    )
+    
     df <- reactive({
       # read all excel files
       if (is.null(myfiles())) {
