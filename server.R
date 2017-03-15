@@ -167,6 +167,12 @@ shinyServer(
       }
     })
 
+    output$info <- renderPrint({
+      if (!is.null(input$plot_click)) {
+        nearPoints(all(), input$plot_click, threshold = 10, maxpoints = 1)      
+      }
+    })
+    
     output$my_plot <- renderPlot({
       if (is.null(all())) {
         return(NULL)

@@ -49,7 +49,8 @@ shinyUI(navbarPage("QC lipidyzer overview", selected = "Results",
                                      div(DT::dataTableOutput("my_table"), style = "font-size: 80%"))),
                             fluidRow(
                               column(12,
-                                     plotOutput("my_plot", height = "650px")))),
+                                     verbatimTextOutput("info"),
+                                     plotOutput("my_plot", height = "650px", click = "plot_click")))),
                    tabPanel("Help",
                             h3("Introduction"),
                             p("This is a first version of the web application to visualize the QC samples from a Lipidyzer study. 
