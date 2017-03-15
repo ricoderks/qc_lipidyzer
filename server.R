@@ -242,11 +242,11 @@ shinyServer(
                            y = value,
                            color = lipid,
                            shape = batch),
-                       size = 3) #+
-            # geom_path(aes(x = Name,
-            #               y = value,
-            #               color = lipid,
-            #               group = lipid))
+                       size = 3) +
+            geom_path(aes(x = Name,
+                          y = value,
+                          color = lipid,
+                          group = lipid))
           if (nrow(myfiles()) == 1) {
             p <- p + guides(color = "none",
                             shape = "none")
