@@ -1,0 +1,1527 @@
+---
+title: "QC lipidyzer report"
+author: "Rico Derks"
+date: '`r Sys.Date()`'
+output: 
+  html_document:
+    code_folding: hide
+    toc: yes
+    toc_float: yes
+params:
+  myfiles: NA
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(ggplot2)
+library(readxl)
+library(purrr)
+
+myfiles <- params$myfiles
+
+sheet_names <- c("Lipid Species Concentrations",
+                 "Lipid Species Composition",
+                 "Lipid Class Concentration",
+                 "Lipid Class Composition",
+                 "Fatty Acid Concentration",
+                 "Fatty Acid Composition")
+```
+
+# Introduction
+
+This report will give an overview of the QC samples from a lipidyzer study.
+
+```{r read_all_data}
+df <- data_frame(datapath = rep(myfiles$datapath, each = length(sheet_names)), 
+                 sheet_names = rep(sheet_names, nrow(myfiles)))
+df <- df %>%
+  mutate(batch = rep(seq(1, length(unique(datapath))), each = length(unique(sheet_names)))) %>%
+  mutate(batch_bar = rep(c(1, 2), each = length(unique(sheet_names)), length.out = length(unique(sheet_names)) * length(unique(datapath)))) %>%
+  mutate(data = map2(.x = datapath,
+                     .y = sheet_names,
+                     .f = ~ read_excel(path = .x,
+                                       sheet = .y,
+                                       col_names = TRUE,
+                                       na = "."))) %>%
+  mutate(data = map2(.x = data,
+                     .y = batch,
+                     .f = ~ mutate(.x, batch = .y))) %>%
+  mutate(data = map2(.x = data,
+                     .y = batch_bar,
+                     .f = ~ mutate(.x, batch_bar = .y)))
+```
+
+# Lipid classes
+
+## Concentration
+
+```{r class_concentration}
+# filter out only what I want
+class <- df %>%
+  filter(sheet_names == sheet_names[3]) %>%
+  select(data) %>%
+  unnest %>%
+  filter(grepl(Name, pattern = "QC-[0-9]*")) %>%
+  gather(lipid, value, -Name, -batch, -batch_bar)  %>%
+  mutate(Name = factor(Name, levels = unique(Name)),
+         lipid = as.factor(lipid),
+         batch = as.factor(batch),
+         batch_bar = as.factor(batch_bar))
+```
+
+```{r class_concentration_table}
+class  %>%
+  select(lipid, value, Name) %>%
+  group_by(lipid) %>%
+  summarise(mean = mean(value, na.rm = TRUE),
+            stdev = sd(value, na.rm = TRUE),
+            RSD = stdev / mean * 100) %>%
+  DT::datatable(colnames = c("Lipid class", "Mean", "St.dev.", "RSD [%]"),
+                options = list(dom = "pt"), selection = "none") %>%             # remove the search field
+  formatRound(columns = c("mean", "stdev", "RSD"), digits = 2)
+```
+
+```{r class_concentration_line}
+class %>%
+  ggplot +
+  geom_point(aes(x = Name,
+                 y = value,
+                 color = lipid,
+                 shape = batch),
+             size = 3) +
+  geom_path(aes(x = Name,
+                y = value,
+                color = lipid,
+                group = lipid)) +
+  guides(color = "none",
+         shape = guide_legend(title = "Batch")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  xlab("QC sample ID") +
+  ylab("Concentration") +
+  facet_wrap(~ lipid, ncol = 3, scales = "free_y")
+```
+
+## Composition
+
+```{r class_composition}
+# filter out only what I want
+class <- df %>%
+  filter(sheet_names == sheet_names[4]) %>%
+  select(data) %>%
+  unnest %>%
+  filter(grepl(Name, pattern = "QC-[0-9]*")) %>%
+  gather(lipid, value, -Name, -batch, -batch_bar)  %>%
+  mutate(Name = factor(Name, levels = unique(Name)),
+         lipid = as.factor(lipid),
+         batch = as.factor(batch),
+         batch_bar = as.factor(batch_bar))
+```
+
+```{r class_composition_table}
+class  %>%
+  select(lipid, value, Name) %>%
+  group_by(lipid) %>%
+  summarise(mean = mean(value, na.rm = TRUE),
+            stdev = sd(value, na.rm = TRUE),
+            RSD = stdev / mean * 100) %>%
+  DT::datatable(colnames = c("Lipid class", "Mean", "St.dev.", "RSD [%]"),
+                options = list(dom = "pt"), selection = "none") %>%             # remove the search field
+  formatRound(columns = c("mean", "stdev", "RSD"), digits = 2)
+```
+
+```{r class_composition_line}
+class %>%
+  ggplot +
+  geom_point(aes(x = Name,
+                 y = value,
+                 color = lipid,
+                 shape = batch),
+             size = 3) +
+  geom_path(aes(x = Name,
+                y = value,
+                color = lipid,
+                group = lipid)) +
+  guides(color = "none",
+         shape = guide_legend(title = "Batch")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  xlab("QC sample ID") +
+  ylab("Composition") +
+  facet_wrap(~ lipid, ncol = 3, scales = "free_y")
+```
+
+# Lipid species
+
+## Concentration
+
+```{r species_concentration}
+# filter out only what I want
+species <- df %>%
+  filter(sheet_names == sheet_names[1]) %>%    # select the lipid species concentration sheet
+  select(data) %>%
+  unnest %>%
+  select(-batch_bar) %>%    # remove the batch_bar column
+  filter(grepl(Name, pattern = "QC-[0-9]*")) %>%
+  gather(lipid, value, -Name, -batch)  %>%
+  mutate(lipid_class = as.factor(gsub(x = lipid,
+                                      pattern = "[\\(]{0,1}[0-9.].*",
+                                      replacement = ""))) %>%
+  mutate(Name = factor(Name, levels = unique(Name)),
+         lipid = factor(lipid, levels = unique(lipid)),
+         batch = as.factor(batch))
+```
+
+### Cholesterol esters
+
+```{r species_concentration_table_CE, warning=FALSE}
+species  %>%
+  filter(lipid_class == "CE") %>%
+  select(lipid, value, Name) %>%
+  group_by(lipid) %>%
+  summarise(mean = mean(value, na.rm = TRUE),
+            stdev = sd(value, na.rm = TRUE),
+            RSD = stdev / mean * 100) %>%
+  DT::datatable(colnames = c("Lipid species", "Mean", "St.dev.", "RSD [%]"),
+                options = list(dom = "pt"), selection = "none") %>%             # remove the search field
+  formatRound(columns = c("mean", "stdev", "RSD"), digits = 2)
+```
+
+```{r species_concentration_line_CE, warning=FALSE}
+species %>%
+  filter(lipid_class == "CE") %>%
+  select(lipid, value, Name, batch) %>%
+  ggplot +
+  geom_point(aes(x = Name,
+                 y = value,
+                 color = lipid,
+                 shape = batch),
+             size = 3) +
+  geom_path(aes(x = Name,
+                y = value,
+                color = lipid,
+                group = lipid)) +
+  guides(color = "none",
+         shape = guide_legend(title = "Batch")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  xlab("QC sample ID") +
+  ylab("Concentration")
+```
+
+### Diacylglycerols
+
+```{r species_concentration_table_DAG, warning=FALSE}
+species  %>%
+  filter(lipid_class == "DAG") %>%
+  select(lipid, value, Name) %>%
+  group_by(lipid) %>%
+  summarise(mean = mean(value, na.rm = TRUE),
+            stdev = sd(value, na.rm = TRUE),
+            RSD = stdev / mean * 100) %>%
+  DT::datatable(colnames = c("Lipid species", "Mean", "St.dev.", "RSD [%]"),
+                options = list(dom = "pt"), selection = "none") %>%             # remove the search field
+  formatRound(columns = c("mean", "stdev", "RSD"), digits = 2)
+```
+
+```{r species_concentration_line_DAG, warning=FALSE}
+species %>%
+  filter(lipid_class == "DAG") %>%
+  select(lipid, value, Name, batch) %>%
+  ggplot +
+  geom_point(aes(x = Name,
+                 y = value,
+                 color = lipid,
+                 shape = batch),
+             size = 3) +
+  geom_path(aes(x = Name,
+                y = value,
+                color = lipid,
+                group = lipid)) +
+  guides(color = "none",
+         shape = guide_legend(title = "Batch")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  xlab("QC sample ID") +
+  ylab("Concentration")
+```
+
+### Free fatty acids
+
+```{r species_concentration_table_FFA, warning=FALSE}
+species  %>%
+  filter(lipid_class == "FFA") %>%
+  select(lipid, value, Name) %>%
+  group_by(lipid) %>%
+  summarise(mean = mean(value, na.rm = TRUE),
+            stdev = sd(value, na.rm = TRUE),
+            RSD = stdev / mean * 100) %>%
+  DT::datatable(colnames = c("Lipid species", "Mean", "St.dev.", "RSD [%]"),
+                options = list(dom = "pt"), selection = "none") %>%             # remove the search field
+  formatRound(columns = c("mean", "stdev", "RSD"), digits = 2)
+```
+
+```{r species_concentration_line_FFA, warning=FALSE}
+species %>%
+  filter(lipid_class == "FFA") %>%
+  select(lipid, value, Name, batch) %>%
+  ggplot +
+  geom_point(aes(x = Name,
+                 y = value,
+                 color = lipid,
+                 shape = batch),
+             size = 3) +
+  geom_path(aes(x = Name,
+                y = value,
+                color = lipid,
+                group = lipid)) +
+  guides(color = "none",
+         shape = guide_legend(title = "Batch")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  xlab("QC sample ID") +
+  ylab("Concentration")
+```
+
+### Lysophosphatidylcholines
+
+```{r species_concentration_table_LPC, warning=FALSE}
+species  %>%
+  filter(lipid_class == "LPC") %>%
+  select(lipid, value, Name) %>%
+  group_by(lipid) %>%
+  summarise(mean = mean(value, na.rm = TRUE),
+            stdev = sd(value, na.rm = TRUE),
+            RSD = stdev / mean * 100) %>%
+  DT::datatable(colnames = c("Lipid species", "Mean", "St.dev.", "RSD [%]"),
+                options = list(dom = "pt"), selection = "none") %>%             # remove the search field
+  formatRound(columns = c("mean", "stdev", "RSD"), digits = 2)
+```
+
+```{r species_concentration_line_LPC, warning=FALSE}
+species %>%
+  filter(lipid_class == "LPC") %>%
+  select(lipid, value, Name, batch) %>%
+  ggplot +
+  geom_point(aes(x = Name,
+                 y = value,
+                 color = lipid,
+                 shape = batch),
+             size = 3) +
+  geom_path(aes(x = Name,
+                y = value,
+                color = lipid,
+                group = lipid)) +
+  guides(color = "none",
+         shape = guide_legend(title = "Batch")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  xlab("QC sample ID") +
+  ylab("Concentration")
+```
+
+### Lysophosphatidylethanolamine
+
+```{r species_concentration_table_LPE, warning=FALSE}
+species  %>%
+  filter(lipid_class == "LPE") %>%
+  select(lipid, value, Name) %>%
+  group_by(lipid) %>%
+  summarise(mean = mean(value, na.rm = TRUE),
+            stdev = sd(value, na.rm = TRUE),
+            RSD = stdev / mean * 100) %>%
+  DT::datatable(colnames = c("Lipid species", "Mean", "St.dev.", "RSD [%]"),
+                options = list(dom = "pt"), selection = "none") %>%             # remove the search field
+  formatRound(columns = c("mean", "stdev", "RSD"), digits = 2)
+```
+
+```{r species_concentration_line_LPE, warning=FALSE}
+species %>%
+  filter(lipid_class == "LPE") %>%
+  select(lipid, value, Name, batch) %>%
+  ggplot +
+  geom_point(aes(x = Name,
+                 y = value,
+                 color = lipid,
+                 shape = batch),
+             size = 3) +
+  geom_path(aes(x = Name,
+                y = value,
+                color = lipid,
+                group = lipid)) +
+  guides(color = "none",
+         shape = guide_legend(title = "Batch")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  xlab("QC sample ID") +
+  ylab("Concentration")
+```
+
+### Phosphatidylcholines
+
+```{r species_concentration_table_PC, warning=FALSE}
+species  %>%
+  filter(lipid_class == "PC") %>%
+  select(lipid, value, Name) %>%
+  group_by(lipid) %>%
+  summarise(mean = mean(value, na.rm = TRUE),
+            stdev = sd(value, na.rm = TRUE),
+            RSD = stdev / mean * 100) %>%
+  DT::datatable(colnames = c("Lipid species", "Mean", "St.dev.", "RSD [%]"),
+                options = list(dom = "pt"), selection = "none") %>%             # remove the search field
+  formatRound(columns = c("mean", "stdev", "RSD"), digits = 2)
+```
+
+```{r species_concentration_line_PC, warning=FALSE}
+species %>%
+  filter(lipid_class == "PC") %>%
+  select(lipid, value, Name, batch) %>%
+  ggplot +
+  geom_point(aes(x = Name,
+                 y = value,
+                 color = lipid,
+                 shape = batch),
+             size = 3) +
+  geom_path(aes(x = Name,
+                y = value,
+                color = lipid,
+                group = lipid)) +
+  guides(color = "none",
+         shape = guide_legend(title = "Batch")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  xlab("QC sample ID") +
+  ylab("Concentration")
+```
+
+### Phosphatidylethanolamines
+
+```{r species_concentration_table_PE, warning=FALSE}
+species  %>%
+  filter(lipid_class == "PE") %>%
+  select(lipid, value, Name) %>%
+  group_by(lipid) %>%
+  summarise(mean = mean(value, na.rm = TRUE),
+            stdev = sd(value, na.rm = TRUE),
+            RSD = stdev / mean * 100) %>%
+  DT::datatable(colnames = c("Lipid species", "Mean", "St.dev.", "RSD [%]"),
+                options = list(dom = "pt"), selection = "none") %>%             # remove the search field
+  formatRound(columns = c("mean", "stdev", "RSD"), digits = 2)
+```
+
+```{r species_concentration_line_PE, warning=FALSE}
+species %>%
+  filter(lipid_class == "PE") %>%
+  select(lipid, value, Name, batch) %>%
+  ggplot +
+  geom_point(aes(x = Name,
+                 y = value,
+                 color = lipid,
+                 shape = batch),
+             size = 3) +
+  geom_path(aes(x = Name,
+                y = value,
+                color = lipid,
+                group = lipid)) +
+  guides(color = "none",
+         shape = guide_legend(title = "Batch")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  xlab("QC sample ID") +
+  ylab("Concentration")
+```
+
+### Sphingomyelins
+
+```{r species_concentration_table_SM, warning=FALSE}
+species  %>%
+  filter(lipid_class == "SM") %>%
+  select(lipid, value, Name) %>%
+  group_by(lipid) %>%
+  summarise(mean = mean(value, na.rm = TRUE),
+            stdev = sd(value, na.rm = TRUE),
+            RSD = stdev / mean * 100) %>%
+  DT::datatable(colnames = c("Lipid species", "Mean", "St.dev.", "RSD [%]"),
+                options = list(dom = "pt"), selection = "none") %>%             # remove the search field
+  formatRound(columns = c("mean", "stdev", "RSD"), digits = 2)
+```
+
+```{r species_concentration_line_SM, warning=FALSE}
+species %>%
+  filter(lipid_class == "SM") %>%
+  select(lipid, value, Name, batch) %>%
+  ggplot +
+  geom_point(aes(x = Name,
+                 y = value,
+                 color = lipid,
+                 shape = batch),
+             size = 3) +
+  geom_path(aes(x = Name,
+                y = value,
+                color = lipid,
+                group = lipid)) +
+  guides(color = "none",
+         shape = guide_legend(title = "Batch")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  xlab("QC sample ID") +
+  ylab("Concentration")
+```
+
+### Triacylglycerols
+
+```{r species_concentration_table_TAG, warning=FALSE}
+species  %>%
+  filter(lipid_class == "TAG") %>%
+  select(lipid, value, Name) %>%
+  group_by(lipid) %>%
+  summarise(mean = mean(value, na.rm = TRUE),
+            stdev = sd(value, na.rm = TRUE),
+            RSD = stdev / mean * 100) %>%
+  DT::datatable(colnames = c("Lipid species", "Mean", "St.dev.", "RSD [%]"),
+                options = list(dom = "pt"), selection = "none") %>%             # remove the search field
+  formatRound(columns = c("mean", "stdev", "RSD"), digits = 2)
+```
+
+```{r species_concentration_line_TAG, warning=FALSE}
+species %>%
+  filter(lipid_class == "TAG") %>%
+  select(lipid, value, Name, batch) %>%
+  ggplot +
+  geom_point(aes(x = Name,
+                 y = value,
+                 color = lipid,
+                 shape = batch),
+             size = 3) +
+  geom_path(aes(x = Name,
+                y = value,
+                color = lipid,
+                group = lipid)) +
+  guides(color = "none",
+         shape = guide_legend(title = "Batch")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  xlab("QC sample ID") +
+  ylab("Concentration")
+```
+
+## Composition
+
+```{r species_composition}
+# filter out only what I want
+species <- df %>%
+  filter(sheet_names == sheet_names[2]) %>%    # select the lipid species composition sheet
+  select(data) %>%
+  unnest %>%
+  select(-batch_bar) %>%    # remove the batch_bar column
+  filter(grepl(Name, pattern = "QC-[0-9]*")) %>%
+  gather(lipid, value, -Name, -batch)  %>%
+  mutate(lipid_class = as.factor(gsub(x = lipid,
+                                      pattern = "[\\(]{0,1}[0-9.].*",
+                                      replacement = ""))) %>%
+  mutate(Name = factor(Name, levels = unique(Name)),
+         lipid = factor(lipid, levels = unique(lipid)),
+         batch = as.factor(batch))
+```
+
+### Cholesterol esters
+
+```{r species_composition_table_CE, warning=FALSE}
+species  %>%
+  filter(lipid_class == "CE") %>%
+  select(lipid, value, Name) %>%
+  group_by(lipid) %>%
+  summarise(mean = mean(value, na.rm = TRUE),
+            stdev = sd(value, na.rm = TRUE),
+            RSD = stdev / mean * 100) %>%
+  DT::datatable(colnames = c("Lipid species", "Mean", "St.dev.", "RSD [%]"),
+                options = list(dom = "pt"), selection = "none") %>%             # remove the search field
+  formatRound(columns = c("mean", "stdev", "RSD"), digits = 2)
+```
+
+```{r species_composition_line_CE, warning=FALSE}
+species %>%
+  filter(lipid_class == "CE") %>%
+  select(lipid, value, Name, batch) %>%
+  ggplot +
+  geom_point(aes(x = Name,
+                 y = value,
+                 color = lipid,
+                 shape = batch),
+             size = 3) +
+  geom_path(aes(x = Name,
+                y = value,
+                color = lipid,
+                group = lipid)) +
+  guides(color = "none",
+         shape = guide_legend(title = "Batch")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  xlab("QC sample ID") +
+  ylab("Composition")
+```
+
+### Diacylglycerols
+
+```{r species_composition_table_DAG, warning=FALSE}
+species  %>%
+  filter(lipid_class == "DAG") %>%
+  select(lipid, value, Name) %>%
+  group_by(lipid) %>%
+  summarise(mean = mean(value, na.rm = TRUE),
+            stdev = sd(value, na.rm = TRUE),
+            RSD = stdev / mean * 100) %>%
+  DT::datatable(colnames = c("Lipid species", "Mean", "St.dev.", "RSD [%]"),
+                options = list(dom = "pt"), selection = "none") %>%             # remove the search field
+  formatRound(columns = c("mean", "stdev", "RSD"), digits = 2)
+```
+
+```{r species_composition_line_DAG, warning=FALSE}
+species %>%
+  filter(lipid_class == "DAG") %>%
+  select(lipid, value, Name, batch) %>%
+  ggplot +
+  geom_point(aes(x = Name,
+                 y = value,
+                 color = lipid,
+                 shape = batch),
+             size = 3) +
+  geom_path(aes(x = Name,
+                y = value,
+                color = lipid,
+                group = lipid)) +
+  guides(color = "none",
+         shape = guide_legend(title = "Batch")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  xlab("QC sample ID") +
+  ylab("Composition")
+```
+
+### Free fatty acids
+
+```{r species_composition_table_FFA, warning=FALSE}
+species  %>%
+  filter(lipid_class == "FFA") %>%
+  select(lipid, value, Name) %>%
+  group_by(lipid) %>%
+  summarise(mean = mean(value, na.rm = TRUE),
+            stdev = sd(value, na.rm = TRUE),
+            RSD = stdev / mean * 100) %>%
+  DT::datatable(colnames = c("Lipid species", "Mean", "St.dev.", "RSD [%]"),
+                options = list(dom = "pt"), selection = "none") %>%             # remove the search field
+  formatRound(columns = c("mean", "stdev", "RSD"), digits = 2)
+```
+
+```{r species_composition_line_FFA, warning=FALSE}
+species %>%
+  filter(lipid_class == "FFA") %>%
+  select(lipid, value, Name, batch) %>%
+  ggplot +
+  geom_point(aes(x = Name,
+                 y = value,
+                 color = lipid,
+                 shape = batch),
+             size = 3) +
+  geom_path(aes(x = Name,
+                y = value,
+                color = lipid,
+                group = lipid)) +
+  guides(color = "none",
+         shape = guide_legend(title = "Batch")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  xlab("QC sample ID") +
+  ylab("Composition")
+```
+
+### Lysophosphatidylcholines
+
+```{r species_composition_table_LPC, warning=FALSE}
+species  %>%
+  filter(lipid_class == "LPC") %>%
+  select(lipid, value, Name) %>%
+  group_by(lipid) %>%
+  summarise(mean = mean(value, na.rm = TRUE),
+            stdev = sd(value, na.rm = TRUE),
+            RSD = stdev / mean * 100) %>%
+  DT::datatable(colnames = c("Lipid species", "Mean", "St.dev.", "RSD [%]"),
+                options = list(dom = "pt"), selection = "none") %>%             # remove the search field
+  formatRound(columns = c("mean", "stdev", "RSD"), digits = 2)
+```
+
+```{r species_composition_line_LPC, warning=FALSE}
+species %>%
+  filter(lipid_class == "LPC") %>%
+  select(lipid, value, Name, batch) %>%
+  ggplot +
+  geom_point(aes(x = Name,
+                 y = value,
+                 color = lipid,
+                 shape = batch),
+             size = 3) +
+  geom_path(aes(x = Name,
+                y = value,
+                color = lipid,
+                group = lipid)) +
+  guides(color = "none",
+         shape = guide_legend(title = "Batch")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  xlab("QC sample ID") +
+  ylab("Composition")
+```
+
+### Lysophosphatidylethanolamine
+
+```{r species_composition_table_LPE, warning=FALSE}
+species  %>%
+  filter(lipid_class == "LPE") %>%
+  select(lipid, value, Name) %>%
+  group_by(lipid) %>%
+  summarise(mean = mean(value, na.rm = TRUE),
+            stdev = sd(value, na.rm = TRUE),
+            RSD = stdev / mean * 100) %>%
+  DT::datatable(colnames = c("Lipid species", "Mean", "St.dev.", "RSD [%]"),
+                options = list(dom = "pt"), selection = "none") %>%             # remove the search field
+  formatRound(columns = c("mean", "stdev", "RSD"), digits = 2)
+```
+
+```{r species_composition_line_LPE, warning=FALSE}
+species %>%
+  filter(lipid_class == "LPE") %>%
+  select(lipid, value, Name, batch) %>%
+  ggplot +
+  geom_point(aes(x = Name,
+                 y = value,
+                 color = lipid,
+                 shape = batch),
+             size = 3) +
+  geom_path(aes(x = Name,
+                y = value,
+                color = lipid,
+                group = lipid)) +
+  guides(color = "none",
+         shape = guide_legend(title = "Batch")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  xlab("QC sample ID") +
+  ylab("Composition")
+```
+
+### Phosphatidylcholines
+
+```{r species_composition_table_PC, warning=FALSE}
+species  %>%
+  filter(lipid_class == "PC") %>%
+  select(lipid, value, Name) %>%
+  group_by(lipid) %>%
+  summarise(mean = mean(value, na.rm = TRUE),
+            stdev = sd(value, na.rm = TRUE),
+            RSD = stdev / mean * 100) %>%
+  DT::datatable(colnames = c("Lipid species", "Mean", "St.dev.", "RSD [%]"),
+                options = list(dom = "pt"), selection = "none") %>%             # remove the search field
+  formatRound(columns = c("mean", "stdev", "RSD"), digits = 2)
+```
+
+```{r species_composition_line_PC, warning=FALSE}
+species %>%
+  filter(lipid_class == "PC") %>%
+  select(lipid, value, Name, batch) %>%
+  ggplot +
+  geom_point(aes(x = Name,
+                 y = value,
+                 color = lipid,
+                 shape = batch),
+             size = 3) +
+  geom_path(aes(x = Name,
+                y = value,
+                color = lipid,
+                group = lipid)) +
+  guides(color = "none",
+         shape = guide_legend(title = "Batch")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  xlab("QC sample ID") +
+  ylab("Composition")
+```
+
+### Phosphatidylethanolamines
+
+```{r species_composition_table_PE, warning=FALSE}
+species  %>%
+  filter(lipid_class == "PE") %>%
+  select(lipid, value, Name) %>%
+  group_by(lipid) %>%
+  summarise(mean = mean(value, na.rm = TRUE),
+            stdev = sd(value, na.rm = TRUE),
+            RSD = stdev / mean * 100) %>%
+  DT::datatable(colnames = c("Lipid species", "Mean", "St.dev.", "RSD [%]"),
+                options = list(dom = "pt"), selection = "none") %>%             # remove the search field
+  formatRound(columns = c("mean", "stdev", "RSD"), digits = 2)
+```
+
+```{r species_composition_line_PE, warning=FALSE}
+species %>%
+  filter(lipid_class == "PE") %>%
+  select(lipid, value, Name, batch) %>%
+  ggplot +
+  geom_point(aes(x = Name,
+                 y = value,
+                 color = lipid,
+                 shape = batch),
+             size = 3) +
+  geom_path(aes(x = Name,
+                y = value,
+                color = lipid,
+                group = lipid)) +
+  guides(color = "none",
+         shape = guide_legend(title = "Batch")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  xlab("QC sample ID") +
+  ylab("Composition")
+```
+
+### Sphingomyelins
+
+```{r species_composition_table_SM, warning=FALSE}
+species  %>%
+  filter(lipid_class == "SM") %>%
+  select(lipid, value, Name) %>%
+  group_by(lipid) %>%
+  summarise(mean = mean(value, na.rm = TRUE),
+            stdev = sd(value, na.rm = TRUE),
+            RSD = stdev / mean * 100) %>%
+  DT::datatable(colnames = c("Lipid species", "Mean", "St.dev.", "RSD [%]"),
+                options = list(dom = "pt"), selection = "none") %>%             # remove the search field
+  formatRound(columns = c("mean", "stdev", "RSD"), digits = 2)
+```
+
+```{r species_composition_line_SM, warning=FALSE}
+species %>%
+  filter(lipid_class == "SM") %>%
+  select(lipid, value, Name, batch) %>%
+  ggplot +
+  geom_point(aes(x = Name,
+                 y = value,
+                 color = lipid,
+                 shape = batch),
+             size = 3) +
+  geom_path(aes(x = Name,
+                y = value,
+                color = lipid,
+                group = lipid)) +
+  guides(color = "none",
+         shape = guide_legend(title = "Batch")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  xlab("QC sample ID") +
+  ylab("Composition")
+```
+
+### Triacylglycerols
+
+```{r species_composition_table_TAG, warning=FALSE}
+species  %>%
+  filter(lipid_class == "TAG") %>%
+  select(lipid, value, Name) %>%
+  group_by(lipid) %>%
+  summarise(mean = mean(value, na.rm = TRUE),
+            stdev = sd(value, na.rm = TRUE),
+            RSD = stdev / mean * 100) %>%
+  DT::datatable(colnames = c("Lipid species", "Mean", "St.dev.", "RSD [%]"),
+                options = list(dom = "pt"), selection = "none") %>%             # remove the search field
+  formatRound(columns = c("mean", "stdev", "RSD"), digits = 2)
+```
+
+```{r species_composition_line_TAG, warning=FALSE}
+species %>%
+  filter(lipid_class == "TAG") %>%
+  select(lipid, value, Name, batch) %>%
+  ggplot +
+  geom_point(aes(x = Name,
+                 y = value,
+                 color = lipid,
+                 shape = batch),
+             size = 3) +
+  geom_path(aes(x = Name,
+                y = value,
+                color = lipid,
+                group = lipid)) +
+  guides(color = "none",
+         shape = guide_legend(title = "Batch")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  xlab("QC sample ID") +
+  ylab("Composition")
+```
+
+# Fatty acid species
+
+## Concentration
+
+```{r fa_concentration}
+# filter out only what I want
+fa <- df %>%
+  filter(sheet_names == sheet_names[5]) %>%    # select the lipid fa concentration sheet
+  select(data) %>%
+  unnest %>%
+  select(-batch_bar) %>%    # remove the batch_bar column
+  filter(grepl(Name, pattern = "QC-[0-9]*")) %>%
+  gather(lipid, value, -Name, -batch)  %>%
+  mutate(lipid_class = as.factor(gsub(x = lipid,
+                                      pattern = "[\\(](FA).*",
+                                      replacement = ""))) %>%
+  mutate(Name = factor(Name, levels = unique(Name)),
+         lipid = factor(lipid, levels = unique(lipid)),
+         batch = as.factor(batch))
+```
+
+### Cholesterol esters
+
+```{r fa_concentration_table_CE, warning=FALSE}
+fa  %>%
+  filter(lipid_class == "CE") %>%
+  select(lipid, value, Name) %>%
+  group_by(lipid) %>%
+  summarise(mean = mean(value, na.rm = TRUE),
+            stdev = sd(value, na.rm = TRUE),
+            RSD = stdev / mean * 100) %>%
+  DT::datatable(colnames = c("FA species", "Mean", "St.dev.", "RSD [%]"),
+                options = list(dom = "pt"), selection = "none") %>%             # remove the search field
+  formatRound(columns = c("mean", "stdev", "RSD"), digits = 2)
+```
+
+```{r fa_concentration_line_CE, warning=FALSE}
+fa %>%
+  filter(lipid_class == "CE") %>%
+  select(lipid, value, Name, batch) %>%
+  ggplot +
+  geom_point(aes(x = Name,
+                 y = value,
+                 color = lipid,
+                 shape = batch),
+             size = 3) +
+  geom_path(aes(x = Name,
+                y = value,
+                color = lipid,
+                group = lipid)) +
+  guides(color = "none",
+         shape = guide_legend(title = "Batch")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  xlab("QC sample ID") +
+  ylab("Concentration")
+```
+
+### Diacylglycerols
+
+```{r fa_concentration_table_DAG, warning=FALSE}
+fa  %>%
+  filter(lipid_class == "DAG") %>%
+  select(lipid, value, Name) %>%
+  group_by(lipid) %>%
+  summarise(mean = mean(value, na.rm = TRUE),
+            stdev = sd(value, na.rm = TRUE),
+            RSD = stdev / mean * 100) %>%
+  DT::datatable(colnames = c("FA species", "Mean", "St.dev.", "RSD [%]"),
+                options = list(dom = "pt"), selection = "none") %>%             # remove the search field
+  formatRound(columns = c("mean", "stdev", "RSD"), digits = 2)
+```
+
+```{r fa_concentration_line_DAG, warning=FALSE}
+fa %>%
+  filter(lipid_class == "DAG") %>%
+  select(lipid, value, Name, batch) %>%
+  ggplot +
+  geom_point(aes(x = Name,
+                 y = value,
+                 color = lipid,
+                 shape = batch),
+             size = 3) +
+  geom_path(aes(x = Name,
+                y = value,
+                color = lipid,
+                group = lipid)) +
+  guides(color = "none",
+         shape = guide_legend(title = "Batch")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  xlab("QC sample ID") +
+  ylab("Concentration")
+```
+
+### Free fatty acids
+
+```{r fa_concentration_table_FFA, warning=FALSE}
+fa  %>%
+  filter(lipid_class == "FFA") %>%
+  select(lipid, value, Name) %>%
+  group_by(lipid) %>%
+  summarise(mean = mean(value, na.rm = TRUE),
+            stdev = sd(value, na.rm = TRUE),
+            RSD = stdev / mean * 100) %>%
+  DT::datatable(colnames = c("FA species", "Mean", "St.dev.", "RSD [%]"),
+                options = list(dom = "pt"), selection = "none") %>%             # remove the search field
+  formatRound(columns = c("mean", "stdev", "RSD"), digits = 2)
+```
+
+```{r fa_concentration_line_FFA, warning=FALSE}
+fa %>%
+  filter(lipid_class == "FFA") %>%
+  select(lipid, value, Name, batch) %>%
+  ggplot +
+  geom_point(aes(x = Name,
+                 y = value,
+                 color = lipid,
+                 shape = batch),
+             size = 3) +
+  geom_path(aes(x = Name,
+                y = value,
+                color = lipid,
+                group = lipid)) +
+  guides(color = "none",
+         shape = guide_legend(title = "Batch")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  xlab("QC sample ID") +
+  ylab("Concentration")
+```
+
+### Lysophosphatidylcholines
+
+```{r fa_concentration_table_LPC, warning=FALSE}
+fa  %>%
+  filter(lipid_class == "LPC") %>%
+  select(lipid, value, Name) %>%
+  group_by(lipid) %>%
+  summarise(mean = mean(value, na.rm = TRUE),
+            stdev = sd(value, na.rm = TRUE),
+            RSD = stdev / mean * 100) %>%
+  DT::datatable(colnames = c("FA species", "Mean", "St.dev.", "RSD [%]"),
+                options = list(dom = "pt"), selection = "none") %>%             # remove the search field
+  formatRound(columns = c("mean", "stdev", "RSD"), digits = 2)
+```
+
+```{r fa_concentration_line_LPC, warning=FALSE}
+fa %>%
+  filter(lipid_class == "LPC") %>%
+  select(lipid, value, Name, batch) %>%
+  ggplot +
+  geom_point(aes(x = Name,
+                 y = value,
+                 color = lipid,
+                 shape = batch),
+             size = 3) +
+  geom_path(aes(x = Name,
+                y = value,
+                color = lipid,
+                group = lipid)) +
+  guides(color = "none",
+         shape = guide_legend(title = "Batch")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  xlab("QC sample ID") +
+  ylab("Concentration")
+```
+
+### Lysophosphatidylethanolamine
+
+```{r fa_concentration_table_LPE, warning=FALSE}
+fa  %>%
+  filter(lipid_class == "LPE") %>%
+  select(lipid, value, Name) %>%
+  group_by(lipid) %>%
+  summarise(mean = mean(value, na.rm = TRUE),
+            stdev = sd(value, na.rm = TRUE),
+            RSD = stdev / mean * 100) %>%
+  DT::datatable(colnames = c("FA species", "Mean", "St.dev.", "RSD [%]"),
+                options = list(dom = "pt"), selection = "none") %>%             # remove the search field
+  formatRound(columns = c("mean", "stdev", "RSD"), digits = 2)
+```
+
+```{r fa_concentration_line_LPE, warning=FALSE}
+fa %>%
+  filter(lipid_class == "LPE") %>%
+  select(lipid, value, Name, batch) %>%
+  ggplot +
+  geom_point(aes(x = Name,
+                 y = value,
+                 color = lipid,
+                 shape = batch),
+             size = 3) +
+  geom_path(aes(x = Name,
+                y = value,
+                color = lipid,
+                group = lipid)) +
+  guides(color = "none",
+         shape = guide_legend(title = "Batch")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  xlab("QC sample ID") +
+  ylab("Concentration")
+```
+
+### Phosphatidylcholines
+
+```{r fa_concentration_table_PC, warning=FALSE}
+fa  %>%
+  filter(lipid_class == "PC") %>%
+  select(lipid, value, Name) %>%
+  group_by(lipid) %>%
+  summarise(mean = mean(value, na.rm = TRUE),
+            stdev = sd(value, na.rm = TRUE),
+            RSD = stdev / mean * 100) %>%
+  DT::datatable(colnames = c("FA species", "Mean", "St.dev.", "RSD [%]"),
+                options = list(dom = "pt"), selection = "none") %>%             # remove the search field
+  formatRound(columns = c("mean", "stdev", "RSD"), digits = 2)
+```
+
+```{r fa_concentration_line_PC, warning=FALSE}
+fa %>%
+  filter(lipid_class == "PC") %>%
+  select(lipid, value, Name, batch) %>%
+  ggplot +
+  geom_point(aes(x = Name,
+                 y = value,
+                 color = lipid,
+                 shape = batch),
+             size = 3) +
+  geom_path(aes(x = Name,
+                y = value,
+                color = lipid,
+                group = lipid)) +
+  guides(color = "none",
+         shape = guide_legend(title = "Batch")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  xlab("QC sample ID") +
+  ylab("Concentration")
+```
+
+### Phosphatidylethanolamines
+
+```{r fa_concentration_table_PE, warning=FALSE}
+fa  %>%
+  filter(lipid_class == "PE") %>%
+  select(lipid, value, Name) %>%
+  group_by(lipid) %>%
+  summarise(mean = mean(value, na.rm = TRUE),
+            stdev = sd(value, na.rm = TRUE),
+            RSD = stdev / mean * 100) %>%
+  DT::datatable(colnames = c("FA species", "Mean", "St.dev.", "RSD [%]"),
+                options = list(dom = "pt"), selection = "none") %>%             # remove the search field
+  formatRound(columns = c("mean", "stdev", "RSD"), digits = 2)
+```
+
+```{r fa_concentration_line_PE, warning=FALSE}
+fa %>%
+  filter(lipid_class == "PE") %>%
+  select(lipid, value, Name, batch) %>%
+  ggplot +
+  geom_point(aes(x = Name,
+                 y = value,
+                 color = lipid,
+                 shape = batch),
+             size = 3) +
+  geom_path(aes(x = Name,
+                y = value,
+                color = lipid,
+                group = lipid)) +
+  guides(color = "none",
+         shape = guide_legend(title = "Batch")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  xlab("QC sample ID") +
+  ylab("Concentration")
+```
+
+### Sphingomyelins
+
+```{r fa_concentration_table_SM, warning=FALSE}
+fa  %>%
+  filter(lipid_class == "SM") %>%
+  select(lipid, value, Name) %>%
+  group_by(lipid) %>%
+  summarise(mean = mean(value, na.rm = TRUE),
+            stdev = sd(value, na.rm = TRUE),
+            RSD = stdev / mean * 100) %>%
+  DT::datatable(colnames = c("FA species", "Mean", "St.dev.", "RSD [%]"),
+                options = list(dom = "pt"), selection = "none") %>%             # remove the search field
+  formatRound(columns = c("mean", "stdev", "RSD"), digits = 2)
+```
+
+```{r fa_concentration_line_SM, warning=FALSE}
+fa %>%
+  filter(lipid_class == "SM") %>%
+  select(lipid, value, Name, batch) %>%
+  ggplot +
+  geom_point(aes(x = Name,
+                 y = value,
+                 color = lipid,
+                 shape = batch),
+             size = 3) +
+  geom_path(aes(x = Name,
+                y = value,
+                color = lipid,
+                group = lipid)) +
+  guides(color = "none",
+         shape = guide_legend(title = "Batch")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  xlab("QC sample ID") +
+  ylab("Concentration")
+```
+
+### Triacylglycerols
+
+```{r fa_concentration_table_TAG, warning=FALSE}
+fa  %>%
+  filter(lipid_class == "TAG") %>%
+  select(lipid, value, Name) %>%
+  group_by(lipid) %>%
+  summarise(mean = mean(value, na.rm = TRUE),
+            stdev = sd(value, na.rm = TRUE),
+            RSD = stdev / mean * 100) %>%
+  DT::datatable(colnames = c("FA species", "Mean", "St.dev.", "RSD [%]"),
+                options = list(dom = "pt"), selection = "none") %>%             # remove the search field
+  formatRound(columns = c("mean", "stdev", "RSD"), digits = 2)
+```
+
+```{r fa_concentration_line_TAG, warning=FALSE}
+fa %>%
+  filter(lipid_class == "TAG") %>%
+  select(lipid, value, Name, batch) %>%
+  ggplot +
+  geom_point(aes(x = Name,
+                 y = value,
+                 color = lipid,
+                 shape = batch),
+             size = 3) +
+  geom_path(aes(x = Name,
+                y = value,
+                color = lipid,
+                group = lipid)) +
+  guides(color = "none",
+         shape = guide_legend(title = "Batch")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  xlab("QC sample ID") +
+  ylab("Concentration")
+```
+
+## Composition
+
+```{r fa_composition}
+# filter out only what I want
+fa <- df %>%
+  filter(sheet_names == sheet_names[6]) %>%    # select the lipid fa composition sheet
+  select(data) %>%
+  unnest %>%
+  select(-batch_bar) %>%    # remove the batch_bar column
+  filter(grepl(Name, pattern = "QC-[0-9]*")) %>%
+  gather(lipid, value, -Name, -batch)  %>%
+  mutate(lipid_class = as.factor(gsub(x = lipid,
+                                      pattern = "[\\(](FA).*",
+                                      replacement = ""))) %>%
+  mutate(Name = factor(Name, levels = unique(Name)),
+         lipid = factor(lipid, levels = unique(lipid)),
+         batch = as.factor(batch))
+```
+
+### Cholesterol esters
+
+```{r fa_composition_table_CE, warning=FALSE}
+fa  %>%
+  filter(lipid_class == "CE") %>%
+  select(lipid, value, Name) %>%
+  group_by(lipid) %>%
+  summarise(mean = mean(value, na.rm = TRUE),
+            stdev = sd(value, na.rm = TRUE),
+            RSD = stdev / mean * 100) %>%
+  DT::datatable(colnames = c("FA species", "Mean", "St.dev.", "RSD [%]"),
+                options = list(dom = "pt"), selection = "none") %>%             # remove the search field
+  formatRound(columns = c("mean", "stdev", "RSD"), digits = 2)
+```
+
+```{r fa_composition_line_CE, warning=FALSE}
+fa %>%
+  filter(lipid_class == "CE") %>%
+  select(lipid, value, Name, batch) %>%
+  ggplot +
+  geom_point(aes(x = Name,
+                 y = value,
+                 color = lipid,
+                 shape = batch),
+             size = 3) +
+  geom_path(aes(x = Name,
+                y = value,
+                color = lipid,
+                group = lipid)) +
+  guides(color = "none",
+         shape = guide_legend(title = "Batch")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  xlab("QC sample ID") +
+  ylab("Composition")
+```
+
+### Diacylglycerols
+
+```{r fa_composition_table_DAG, warning=FALSE}
+fa  %>%
+  filter(lipid_class == "DAG") %>%
+  select(lipid, value, Name) %>%
+  group_by(lipid) %>%
+  summarise(mean = mean(value, na.rm = TRUE),
+            stdev = sd(value, na.rm = TRUE),
+            RSD = stdev / mean * 100) %>%
+  DT::datatable(colnames = c("FA species", "Mean", "St.dev.", "RSD [%]"),
+                options = list(dom = "pt"), selection = "none") %>%             # remove the search field
+  formatRound(columns = c("mean", "stdev", "RSD"), digits = 2)
+```
+
+```{r fa_composition_line_DAG, warning=FALSE}
+fa %>%
+  filter(lipid_class == "DAG") %>%
+  select(lipid, value, Name, batch) %>%
+  ggplot +
+  geom_point(aes(x = Name,
+                 y = value,
+                 color = lipid,
+                 shape = batch),
+             size = 3) +
+  geom_path(aes(x = Name,
+                y = value,
+                color = lipid,
+                group = lipid)) +
+  guides(color = "none",
+         shape = guide_legend(title = "Batch")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  xlab("QC sample ID") +
+  ylab("Composition")
+```
+
+### Free fatty acids
+
+```{r fa_composition_table_FFA, warning=FALSE}
+fa  %>%
+  filter(lipid_class == "FFA") %>%
+  select(lipid, value, Name) %>%
+  group_by(lipid) %>%
+  summarise(mean = mean(value, na.rm = TRUE),
+            stdev = sd(value, na.rm = TRUE),
+            RSD = stdev / mean * 100) %>%
+  DT::datatable(colnames = c("FA species", "Mean", "St.dev.", "RSD [%]"),
+                options = list(dom = "pt"), selection = "none") %>%             # remove the search field
+  formatRound(columns = c("mean", "stdev", "RSD"), digits = 2)
+```
+
+```{r fa_composition_line_FFA, warning=FALSE}
+fa %>%
+  filter(lipid_class == "FFA") %>%
+  select(lipid, value, Name, batch) %>%
+  ggplot +
+  geom_point(aes(x = Name,
+                 y = value,
+                 color = lipid,
+                 shape = batch),
+             size = 3) +
+  geom_path(aes(x = Name,
+                y = value,
+                color = lipid,
+                group = lipid)) +
+  guides(color = "none",
+         shape = guide_legend(title = "Batch")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  xlab("QC sample ID") +
+  ylab("Composition")
+```
+
+### Lysophosphatidylcholines
+
+```{r fa_composition_table_LPC, warning=FALSE}
+fa  %>%
+  filter(lipid_class == "LPC") %>%
+  select(lipid, value, Name) %>%
+  group_by(lipid) %>%
+  summarise(mean = mean(value, na.rm = TRUE),
+            stdev = sd(value, na.rm = TRUE),
+            RSD = stdev / mean * 100) %>%
+  DT::datatable(colnames = c("FA species", "Mean", "St.dev.", "RSD [%]"),
+                options = list(dom = "pt"), selection = "none") %>%             # remove the search field
+  formatRound(columns = c("mean", "stdev", "RSD"), digits = 2)
+```
+
+```{r fa_composition_line_LPC, warning=FALSE}
+fa %>%
+  filter(lipid_class == "LPC") %>%
+  select(lipid, value, Name, batch) %>%
+  ggplot +
+  geom_point(aes(x = Name,
+                 y = value,
+                 color = lipid,
+                 shape = batch),
+             size = 3) +
+  geom_path(aes(x = Name,
+                y = value,
+                color = lipid,
+                group = lipid)) +
+  guides(color = "none",
+         shape = guide_legend(title = "Batch")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  xlab("QC sample ID") +
+  ylab("Composition")
+```
+
+### Lysophosphatidylethanolamine
+
+```{r fa_composition_table_LPE, warning=FALSE}
+fa  %>%
+  filter(lipid_class == "LPE") %>%
+  select(lipid, value, Name) %>%
+  group_by(lipid) %>%
+  summarise(mean = mean(value, na.rm = TRUE),
+            stdev = sd(value, na.rm = TRUE),
+            RSD = stdev / mean * 100) %>%
+  DT::datatable(colnames = c("FA species", "Mean", "St.dev.", "RSD [%]"),
+                options = list(dom = "pt"), selection = "none") %>%             # remove the search field
+  formatRound(columns = c("mean", "stdev", "RSD"), digits = 2)
+```
+
+```{r fa_composition_line_LPE, warning=FALSE}
+fa %>%
+  filter(lipid_class == "LPE") %>%
+  select(lipid, value, Name, batch) %>%
+  ggplot +
+  geom_point(aes(x = Name,
+                 y = value,
+                 color = lipid,
+                 shape = batch),
+             size = 3) +
+  geom_path(aes(x = Name,
+                y = value,
+                color = lipid,
+                group = lipid)) +
+  guides(color = "none",
+         shape = guide_legend(title = "Batch")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  xlab("QC sample ID") +
+  ylab("Composition")
+```
+
+### Phosphatidylcholines
+
+```{r fa_composition_table_PC, warning=FALSE}
+fa  %>%
+  filter(lipid_class == "PC") %>%
+  select(lipid, value, Name) %>%
+  group_by(lipid) %>%
+  summarise(mean = mean(value, na.rm = TRUE),
+            stdev = sd(value, na.rm = TRUE),
+            RSD = stdev / mean * 100) %>%
+  DT::datatable(colnames = c("FA species", "Mean", "St.dev.", "RSD [%]"),
+                options = list(dom = "pt"), selection = "none") %>%             # remove the search field
+  formatRound(columns = c("mean", "stdev", "RSD"), digits = 2)
+```
+
+```{r fa_composition_line_PC, warning=FALSE}
+fa %>%
+  filter(lipid_class == "PC") %>%
+  select(lipid, value, Name, batch) %>%
+  ggplot +
+  geom_point(aes(x = Name,
+                 y = value,
+                 color = lipid,
+                 shape = batch),
+             size = 3) +
+  geom_path(aes(x = Name,
+                y = value,
+                color = lipid,
+                group = lipid)) +
+  guides(color = "none",
+         shape = guide_legend(title = "Batch")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  xlab("QC sample ID") +
+  ylab("Composition")
+```
+
+### Phosphatidylethanolamines
+
+```{r fa_composition_table_PE, warning=FALSE}
+fa  %>%
+  filter(lipid_class == "PE") %>%
+  select(lipid, value, Name) %>%
+  group_by(lipid) %>%
+  summarise(mean = mean(value, na.rm = TRUE),
+            stdev = sd(value, na.rm = TRUE),
+            RSD = stdev / mean * 100) %>%
+  DT::datatable(colnames = c("FA species", "Mean", "St.dev.", "RSD [%]"),
+                options = list(dom = "pt"), selection = "none") %>%             # remove the search field
+  formatRound(columns = c("mean", "stdev", "RSD"), digits = 2)
+```
+
+```{r fa_composition_line_PE, warning=FALSE}
+fa %>%
+  filter(lipid_class == "PE") %>%
+  select(lipid, value, Name, batch) %>%
+  ggplot +
+  geom_point(aes(x = Name,
+                 y = value,
+                 color = lipid,
+                 shape = batch),
+             size = 3) +
+  geom_path(aes(x = Name,
+                y = value,
+                color = lipid,
+                group = lipid)) +
+  guides(color = "none",
+         shape = guide_legend(title = "Batch")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  xlab("QC sample ID") +
+  ylab("Composition")
+```
+
+### Sphingomyelins
+
+```{r fa_composition_table_SM, warning=FALSE}
+fa  %>%
+  filter(lipid_class == "SM") %>%
+  select(lipid, value, Name) %>%
+  group_by(lipid) %>%
+  summarise(mean = mean(value, na.rm = TRUE),
+            stdev = sd(value, na.rm = TRUE),
+            RSD = stdev / mean * 100) %>%
+  DT::datatable(colnames = c("FA species", "Mean", "St.dev.", "RSD [%]"),
+                options = list(dom = "pt"), selection = "none") %>%             # remove the search field
+  formatRound(columns = c("mean", "stdev", "RSD"), digits = 2)
+```
+
+```{r fa_composition_line_SM, warning=FALSE}
+fa %>%
+  filter(lipid_class == "SM") %>%
+  select(lipid, value, Name, batch) %>%
+  ggplot +
+  geom_point(aes(x = Name,
+                 y = value,
+                 color = lipid,
+                 shape = batch),
+             size = 3) +
+  geom_path(aes(x = Name,
+                y = value,
+                color = lipid,
+                group = lipid)) +
+  guides(color = "none",
+         shape = guide_legend(title = "Batch")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  xlab("QC sample ID") +
+  ylab("Composition")
+```
+
+### Triacylglycerols
+
+```{r fa_composition_table_TAG, warning=FALSE}
+fa  %>%
+  filter(lipid_class == "TAG") %>%
+  select(lipid, value, Name) %>%
+  group_by(lipid) %>%
+  summarise(mean = mean(value, na.rm = TRUE),
+            stdev = sd(value, na.rm = TRUE),
+            RSD = stdev / mean * 100) %>%
+  DT::datatable(colnames = c("FA species", "Mean", "St.dev.", "RSD [%]"),
+                options = list(dom = "pt"), selection = "none") %>%             # remove the search field
+  formatRound(columns = c("mean", "stdev", "RSD"), digits = 2)
+```
+
+```{r fa_composition_line_TAG, warning=FALSE}
+fa %>%
+  filter(lipid_class == "TAG") %>%
+  select(lipid, value, Name, batch) %>%
+  ggplot +
+  geom_point(aes(x = Name,
+                 y = value,
+                 color = lipid,
+                 shape = batch),
+             size = 3) +
+  geom_path(aes(x = Name,
+                y = value,
+                color = lipid,
+                group = lipid)) +
+  guides(color = "none",
+         shape = guide_legend(title = "Batch")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  xlab("QC sample ID") +
+  ylab("Composition")
+```

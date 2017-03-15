@@ -50,6 +50,29 @@ shinyServer(
       }
     })
 
+    output$fileUploaded <- reactive({
+      return(!is.null(myfiles()))
+    })
+    outputOptions(output, "fileUploaded", suspendWhenHidden = FALSE)
+    
+    output$report <- downloadHandler(
+      filename = "report.html",
+      content = function(file) {
+        tempReport <- file.path(tempdir(), "report.Rmd")
+        file.copy(from = "report.Rmd", to = tempReport, overwrite = TRUE)
+        
+        params <- list(myfiles = myfiles())
+        
+        withProgress(message = "Generating report...",
+                     detail = "This may take a while!", {
+        rmarkdown::render(input = tempReport, 
+                          output_file = file,
+                          params = params,
+                          envir = new.env(parent = globalenv()))
+        })
+      }
+    )
+    
     df <- reactive({
       # read all excel files
       if (is.null(myfiles())) {
@@ -140,11 +163,51 @@ shinyServer(
                     stdev = sd(value, na.rm = TRUE),
                     RSD = stdev / mean * 100) %>%
           datatable(colnames = c(params()$col_title, "Mean", "St.dev.", "RSD [%]"),
-                    options = list(dom = "pt"), selection = myparams$row_selection) %>%             # remove the search field
+                    options = list(dom = "pt"), 
+                    selection = myparams$row_selection,            # remove the search field
+                    rownames = FALSE) %>% 
           formatRound(columns = c("mean", "stdev", "RSD"), digits = 2)
       }
     })
 
+    output$info <- renderDataTable({
+      if (!is.null(all())) {
+        myparams <- params()
+        all <- switch(myparams$type,
+                      "class" = all(),
+                      "species" = {
+                        if (length(input$my_table_rows_selected) == 0) {
+                          all <- all() %>% filter(lipid_class == input$select_class) 
+                        } else {
+                          all <- all() %>% filter(lipid_class == input$select_class)
+                          x <- levels(droplevels(all$lipid))[input$my_table_rows_selected]
+                          all %>% filter(lipid %in% x)
+                        }},
+                      "fa_species" = {
+                        if (length(input$my_table_rows_selected) == 0) {
+                          all <- all() %>% filter(lipid_class == input$select_class) 
+                        } else {
+                          all <- all() %>% filter(lipid_class == input$select_class)
+                          x <- levels(droplevels(all$lipid))[input$my_table_rows_selected]
+                          all %>% filter(lipid %in% x)
+                        }})
+      }
+      if (!is.null(input$plot_click)) {
+        data_point <- nearPoints(all, input$plot_click, threshold = 10, maxpoints = 1)
+      }
+      if (!is.null(input$plot_brush)) {
+        data_point <- brushedPoints(all, input$plot_brush)
+      }
+      if (exists("data_point")) {
+        if (nrow(data_point) > 0) {
+          data_point %>% 
+            select(Name, lipid, value) %>%
+            filter(Name != "") %>%    # remove some empty rows
+            datatable(options = list(dom="t"), selection = "none", rownames = FALSE)
+        }
+      }
+    })
+    
     output$my_plot <- renderPlot({
       if (is.null(all())) {
         return(NULL)
@@ -179,11 +242,11 @@ shinyServer(
                            y = value,
                            color = lipid,
                            shape = batch),
-                       size = 3) +
-            geom_path(aes(x = Name,
-                          y = value,
-                          color = lipid,
-                          group = lipid))
+                       size = 3) #+
+            # geom_path(aes(x = Name,
+            #               y = value,
+            #               color = lipid,
+            #               group = lipid))
           if (nrow(myfiles()) == 1) {
             p <- p + guides(color = "none",
                             shape = "none")
