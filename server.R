@@ -63,10 +63,12 @@ shinyServer(
         
         params <- list(myfiles = myfiles())
         
+        withProgress(message = "Generating report..." ,{
         rmarkdown::render(input = tempReport, 
                           output_file = file,
                           params = params,
                           envir = new.env(parent = globalenv()))
+        })
       }
     )
     
