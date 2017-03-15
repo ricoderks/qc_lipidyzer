@@ -163,7 +163,7 @@ shinyServer(
                     stdev = sd(value, na.rm = TRUE),
                     RSD = stdev / mean * 100) %>%
           datatable(colnames = c(params()$col_title, "Mean", "St.dev.", "RSD [%]"),
-                    options = list(dom = "pt"), 
+                    options = list(dom = "tp"), 
                     selection = myparams$row_selection,            # remove the search field
                     rownames = FALSE) %>% 
           formatRound(columns = c("mean", "stdev", "RSD"), digits = 2)
@@ -203,7 +203,7 @@ shinyServer(
           data_point %>% 
             select(Name, lipid, value) %>%
             filter(Name != "") %>%    # remove some empty rows
-            datatable(options = list(dom="t"), selection = "none", rownames = FALSE)
+            datatable(options = list(dom="tp"), selection = "none", rownames = FALSE)
         }
       }
     })
@@ -242,11 +242,11 @@ shinyServer(
                            y = value,
                            color = lipid,
                            shape = batch),
-                       size = 3) #+
-            # geom_path(aes(x = Name,
-            #               y = value,
-            #               color = lipid,
-            #               group = lipid))
+                       size = 3) +
+            geom_path(aes(x = Name,
+                          y = value,
+                          color = lipid,
+                          group = lipid))
           if (nrow(myfiles()) == 1) {
             p <- p + guides(color = "none",
                             shape = "none")
@@ -291,9 +291,9 @@ shinyServer(
       }
     })
     
-    # output$help_session <- renderPrint({
-    #   sessionInfo()
-    # })
+    output$help_session <- renderPrint({
+      print(sessionInfo())
+    })
     
     # output$my_text <- renderText({
     #    if (is.null(myfiles())) {

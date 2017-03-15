@@ -83,7 +83,7 @@ shinyUI(navbarPage("QC lipidyzer overview", selected = "Results",
                         <li>If you select a <b>Lipid Species *</b> sheet, select which lipid class you want to see (default <i>CE</i>).</li>
                         <li>If you select a <b>Lipid Species *</b> sheet it is possible to plot the individual species by clicking on the row in the table. Multiple selections is possible.</li>
                         </ul>")),
-                            h4("Graph"),
+                            h3("Graph"),
                             p(HTML("<ul>
                                     <li>Click on a data point to get more information.</li>
                                     <li>You can select multiple points by click and drag.</li>
@@ -91,8 +91,9 @@ shinyUI(navbarPage("QC lipidyzer overview", selected = "Results",
                             h3("Report"),
                             p("A report with all graphs and tables can be downloaded by clicking the ", strong("Generate report"), " button. This may take 10-20 seconds."),
                             h3("Issues"),
-                            p("If you have any issue please send me an email or go to the ", a("issue tracker.", href = "https://git.lumc.nl/rjederks/qc_lipidyzer/issues", target = "_blank"))
-                            #textOutput("help_session")))
+                            p("If you have any issue please send me an email or go to the ", a("issue tracker.", href = "https://git.lumc.nl/rjederks/qc_lipidyzer/issues", target = "_blank")),
+                            h3("Session info"),
+                            htmlOutput("help_session")
                    )
 )
 )
