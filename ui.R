@@ -80,6 +80,9 @@ shinyUI(fluidPage(
                         <li>If you select a <b>Lipid Species *</b> sheet, select which lipid class you want to see (default <i>CE</i>).</li>
                         <li>If you select a <b>Lipid Species *</b> sheet it is possible to plot the individual species by clicking on the row in the table. Multiple selections is possible.</li>
                         </ul>")),
+                      h3("Report"),
+                      p("A report with all graphs and tables can be downloaded by clicking the ", strong("Generate report"), " button. This may take 10-20 seconds, the page will not respond. 
+                        A progress bar is not available at the moment."),
                       h3("Issues"),
                       p("If you have any issue please send me an email or go to the ", a("issue tracker.", href = "https://git.lumc.nl/rjederks/qc_lipidyzer/issues", target = "_blank"))
                       #textOutput("help_session")))
