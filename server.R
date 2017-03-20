@@ -205,9 +205,9 @@ shinyServer(
             filter(Name != "") %>%    # remove some empty rows
             datatable(options = list(dom="tp"), selection = "none", rownames = FALSE)
         }
-      }
+      } 
     })
-    
+
     output$my_plot <- renderPlot({
       if (is.null(all())) {
         return(NULL)
