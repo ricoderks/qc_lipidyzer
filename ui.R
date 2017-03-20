@@ -80,8 +80,8 @@ shinyUI(navbarPage("QC lipidyzer overview", selected = "Results",
                         <li>Select which sheet from the Excel file you want to see (default <i>Lipid Class Concentration</i>).</li>
                         <li>Select which QC sample you want to see (default is the <i>normal QC samples</i>).</li>
                         <li>If you select a <b>Lipid Class *</b> sheet, you can choose between a line graph or bar graph.</li>
-                        <li>If you select a <b>Lipid Species *</b> sheet, select which lipid class you want to see (default <i>CE</i>).</li>
-                        <li>If you select a <b>Lipid Species *</b> sheet it is possible to plot the individual species by clicking on the row in the table. Multiple selections is possible.</li>
+                        <li>If you select a <b>Lipid Species *</b> or <b>Fatty Acid *</b> sheet, select which lipid class you want to see (default <i>CE</i>).</li>
+                        <li>If you select a <b>Lipid Species *</b> or <b>Fatty Acid *</b> sheet it is possible to plot the individual species by clicking on the row in the table. Multiple selections is possible.</li>
                         </ul>")),
                             h3("Graph"),
                             p(HTML("<ul>
