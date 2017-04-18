@@ -117,3 +117,4 @@ all %>%
   ylab("Concentration")
 
 
+subset(colnames(aap$data[[3]]), !(colnames(aap$data[[3]]) %in% c("Name", "batch", "batch_bar")))

@@ -16,7 +16,7 @@ sheet_names <- c("Lipid Species Concentrations",
                  "Fatty Acid Composition")
 
 shinyServer(
-  function(input, output) {
+  function(input, output, session) {
     params <- reactive({
       switch(input$select_sheet,
              "Lipid Species Concentration" = list(sheetname = "Lipid Species Concentrations", ylab = "Concentration", col_title = "Lipid species",row_selection = "multiple", type = "species"),
@@ -98,6 +98,20 @@ shinyServer(
           mutate(data = map2(.x = data,
                              .y = batch_bar,
                              .f = ~ mutate(.x, batch_bar = .y)))
+
+        # update the lipid class selection to the classes actual present in the QC files
+        # get the columns names of dataframe 3
+        class_names <- colnames(df$data[[3]])
+        # only keep the real lipid class names
+        class_names <- subset(class_names, !(class_names %in% c("Name", "batch", "batch_bar")))
+        # update the selectInput
+        updateSelectInput(session = session,
+                          inputId = "select_class",
+                          label = "Select a lipid class:",
+                          choices = class_names)
+        
+        # return the dataframe
+        return(df)
       }
   })
     
