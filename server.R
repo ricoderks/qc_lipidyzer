@@ -27,10 +27,11 @@ shinyServer(
              "Fatty Acid Composition" = list(sheetname = "Fatty Acid Composition", ylab = "Composition", col_title = "FA species", row_selection = "multiple", type = "fa_species"))
     })
     
-    params_qc <- reactive({
-      switch(input$select_qc,
+    sample_type <- reactive({
+      switch(input$select_sample_type,
              "QC_normal" = list(qc = "QC-[0-9]*"),
-             "QC_spike" = list(qc = "QC_SPIKE*"))
+             "QC_spike" = list(qc = "QC_SPIKE*"),
+             "Samples" = list(qc = "QC*"))
     })
 
     myfiles <- reactive({
@@ -121,14 +122,14 @@ shinyServer(
       } else {
         # get the parameters
         myparams <- params()
-        myparams_qc <- params_qc()
+        my_sample_type <- sample_type()
         
         # merge into one dataframe
         all <- df() %>%
           filter(sheet_names == myparams$sheetname) %>%
           select(data) %>%
           unnest %>%
-          filter(grepl(Name, pattern = myparams_qc$qc))     #  select which qc sample you want to see
+          filter(grepl(Name, pattern = my_sample_type$qc))     #  select which qc sample you want to see
         
         # looking at the lipid classes or species
         switch(myparams$type,
