@@ -1,9 +1,10 @@
 # Introduction
 
-This repository holds the code for showing the QC samples of the lipidyzer in a nice and quick way.
+This repository holds the code analysing lipidyzer data. The first version is based on the qc_lipidyzer 
+code.
 
-The address is : 
-http://5-para-12-0152:3838/qc_lipidyzer/
+The address will be : 
+http://5-para-12-0152:3838/lipidyzer/
 
 # Issues
 
