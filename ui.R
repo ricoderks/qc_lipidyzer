@@ -1,6 +1,6 @@
 library(shiny)
 
-shinyUI(navbarPage("QC lipidyzer overview", selected = "Results",
+shinyUI(navbarPage("Lipidyzer analysis", selected = "Results",
                    tabPanel("Results",
                             #textOutput("my_text"),
                             fluidRow(
@@ -45,7 +45,7 @@ shinyUI(navbarPage("QC lipidyzer overview", selected = "Results",
                                                                                                   "Bar" = "bar"),
                                                                                       selected = "line"))
                                                         ),
-                                       conditionalPanel(condition = "output.fileUploaded == true && (input.select_sheet == 'Lipid Class Concentration' || input.select_sheet == 'Lipid Class Composition')",
+                                       conditionalPanel(condition = "output.fileUploaded == true && (input.select_sample_type == 'QC_normal' || input.select_sample_type == 'QC_spike')",
                                                         downloadButton(outputId = "report",
                                                                        label = "Generate report")))),
                               column(4,
