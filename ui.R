@@ -67,7 +67,7 @@ shinyUI(navbarPage("Lipidyzer analysis", selected = "Results",
                    <li>The order of the processing of the files is alphabetically.</li>
                    <li>QC spike sample ID needs to start with <b>QC_SPIKE</b>.</li>
                    <li>Normal QC samples ID needs to start with <b>QC-</b>.</li>
-                   <li>Make sure sample ID's don't start with QC!!</li>
+                   <li>Make sure sample ID's don't start with <b>QC</b>!!</li>
                    <li>The sheetnames in the xlsx file should not be changed. The names are :</li>
                    <ul>
                         <li>Lipid Species Concentrations</li>
@@ -95,7 +95,7 @@ shinyUI(navbarPage("Lipidyzer analysis", selected = "Results",
                             h3("Report"),
                             p("A report with all graphs and tables can be downloaded by clicking the ", strong("Generate report"), " button. This may take 10-20 seconds."),
                             h3("Issues"),
-                            p("If you have any issue please send me an email or go to the ", a("issue tracker.", href = "https://git.lumc.nl/rjederks/qc_lipidyzer/issues", target = "_blank")),
+                            p("If you have any issue please send me an email or go to the ", a("issue tracker.", href = "https://git.lumc.nl/rjederks/lipidyzer/issues", target = "_blank")),
                             h3("Session info"),
                             htmlOutput("help_session")
                    )
