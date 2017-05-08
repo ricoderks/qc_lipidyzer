@@ -10,7 +10,7 @@ shinyUI(navbarPage("QC lipidyzer overview", selected = "Results",
                                                  "Select XLSX files from lipidyzer:",
                                                  multiple = TRUE),
                                        radioButtons(inputId = "select_sample_type",
-                                                   label = "Select which QC's you want to see:",
+                                                   label = "Select which sample type you want to see:",
                                                    choices = c("normal QC" = "QC_normal",
                                                                "QC spike" = "QC_spike",
                                                                "Samples" = "Samples"),
@@ -59,7 +59,7 @@ shinyUI(navbarPage("QC lipidyzer overview", selected = "Results",
                                                 brush = "plot_brush")))),
                    tabPanel("Help",
                             h3("Introduction"),
-                            p("This is a first version of the web application to visualize the QC samples from a Lipidyzer study. 
+                            p("This is a first version of the web application to visualize the results from a Lipidyzer study. 
                    Currently switching Excel sheet will cause the web application to read all files again. 
                    This will be changed in the future to improve speed."),
                             p(strong("Prerequisites :")),
@@ -67,6 +67,7 @@ shinyUI(navbarPage("QC lipidyzer overview", selected = "Results",
                    <li>The order of the processing of the files is alphabetically.</li>
                    <li>QC spike sample ID needs to start with <b>QC_SPIKE</b>.</li>
                    <li>Normal QC samples ID needs to start with <b>QC-</b>.</li>
+                   <li>Make sure sample ID's don't start with QC!!</li>
                    <li>The sheetnames in the xlsx file should not be changed. The names are :</li>
                    <ul>
                         <li>Lipid Species Concentrations</li>

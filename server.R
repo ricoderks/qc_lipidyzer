@@ -29,9 +29,9 @@ shinyServer(
     
     sample_type <- reactive({
       switch(input$select_sample_type,
-             "QC_normal" = list(qc = "QC-[0-9]*"),
-             "QC_spike" = list(qc = "QC_SPIKE*"),
-             "Samples" = list(qc = "QC*"))
+             "QC_normal" = list(qc = "QC-[0-9]*", invert = FALSE),
+             "QC_spike" = list(qc = "QC_SPIKE*", invert = FALSE),
+             "Samples" = list(qc = "QC*", invert = TRUE))
     })
 
     myfiles <- reactive({
@@ -129,7 +129,8 @@ shinyServer(
           filter(sheet_names == myparams$sheetname) %>%
           select(data) %>%
           unnest %>%
-          filter(grepl(Name, pattern = my_sample_type$qc))     #  select which qc sample you want to see
+          filter((my_sample_type$invert == TRUE & !grepl(x = Name, pattern = my_sample_type$qc)) |
+                   (my_sample_type$invert == FALSE & grepl(x = Name, pattern = my_sample_type$qc)))     #  select which samples you want to see
         
         # looking at the lipid classes or species
         switch(myparams$type,

@@ -43,8 +43,8 @@ aap <-aap %>%
                      .f = ~ read_excel(path = .x,
                                         sheet = .y,
                                         col_names = TRUE,
-                                        na = ".") %>%
-                       filter(! (grepl(Name, pattern = "QC_SPIKE*")) & grepl(Name, pattern = "QC-*")))) %>% # remove QC spike and select the normal QC samples
+                                        na = "."))) %>%
+                     #  filter(! (grepl(Name, pattern = "QC_SPIKE*")) & grepl(Name, pattern = "QC-*")))) %>% # remove QC spike and select the normal QC samples
   mutate(data = map2(.x = data,
                      .y = batch,
                      .f = ~ mutate(.x, batch = .y))) %>%
@@ -52,10 +52,13 @@ aap <-aap %>%
                      .y = batch_bar,
                      .f = ~ mutate(.x, batch_bar = .y)))
 
+my_invert <- TRUE
+
 all <- aap %>%
   filter(sheet_names == sheet_names[3]) %>%
   select(data) %>%
-  unnest
+  unnest %>%
+  filter((my_invert == TRUE & !grepl(Name, pattern = "QC*")) | (my_invert == FALSE & grepl(Name, pattern = "QC-*")))
   
 ## line grah
 p <- all %>% 
