@@ -1,14 +1,19 @@
 library(shiny)
 
 shinyUI(navbarPage("Lipidyzer analysis", selected = "Results",
+                   tabPanel("Files",
+                            fluidRow(
+                              column(12,
+                                     inputPanel(
+                                       fileInput("result_files", 
+                                                 "Select XLSX files from lipidyzer:",
+                                                 multiple = TRUE)
+                                     )))),
                    tabPanel("Results",
                             #textOutput("my_text"),
                             fluidRow(
                               column(4,
                                      inputPanel(
-                                       fileInput("result_files", 
-                                                 "Select XLSX files from lipidyzer:",
-                                                 multiple = TRUE),
                                        radioButtons(inputId = "select_sample_type",
                                                    label = "Select which sample type you want to see:",
                                                    choices = c("normal QC" = "QC_normal",
