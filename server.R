@@ -35,25 +35,24 @@ shinyServer(
     })
 
     myfiles <- reactive({
+      # check if there are already filenames
+      req(input$result_files)
+      
       # get the filenames
       my_files <- input$result_files
-
-      if (is.null(my_files)) {
-        # no files selected yet
-        return(NULL)
-      } else {
-        # this is nescessary for readxl to read the excel files
-        file.rename(my_files$datapath,
-                    paste0(my_files$datapath, ".xlsx"))
-        my_files$datapath = paste0(my_files$datapath, ".xlsx")
-
-        return(my_files)
-      }
+      
+      # this is nescessary for readxl to read the excel files
+      file.rename(my_files$datapath,
+                  paste0(my_files$datapath, ".xlsx"))
+      my_files$datapath = paste0(my_files$datapath, ".xlsx")
+      
+      return(my_files)
     })
 
     output$fileUploaded <- reactive({
       return(!is.null(myfiles()))
     })
+    
     outputOptions(output, "fileUploaded", suspendWhenHidden = FALSE)
     
     output$report <- downloadHandler(
@@ -75,139 +74,137 @@ shinyServer(
     )
     
     df <- reactive({
+      req(myfiles)
+      
       # read all excel files
-      if (is.null(myfiles())) {
-        return(NULL)
-      } else {
-        #myparams_qc <- params_qc()
-        # add datapath and sheet_names to dataframe
-        df <- data_frame(datapath = rep(myfiles()$datapath, each = length(sheet_names)), 
-                         sheet_names = rep(sheet_names, nrow(myfiles())))
-        # read all the files
-        df <- df %>%
-          mutate(batch = rep(seq(1, length(unique(datapath))), each = length(unique(sheet_names)))) %>%
-          mutate(batch_bar = rep(c(1, 2), each = length(unique(sheet_names)), length.out = length(unique(sheet_names)) * length(unique(datapath)))) %>%
-          mutate(data = map2(.x = datapath,
-                             .y = sheet_names,
-                             .f = ~ read_excel(path = .x,
-                                               sheet = .y,
-                                               col_names = TRUE,
-                                               na = "."))) %>%
-          mutate(data = map2(.x = data,
-                             .y = batch,
-                             .f = ~ mutate(.x, batch = .y))) %>%
-          mutate(data = map2(.x = data,
-                             .y = batch_bar,
-                             .f = ~ mutate(.x, batch_bar = .y)))
-
-        # update the lipid class selection to the classes actual present in the QC files
-        # get the columns names of dataframe 3
-        class_names <- colnames(df$data[[3]])
-        # only keep the real lipid class names
-        class_names <- subset(class_names, !(class_names %in% c("Name", "batch", "batch_bar")))
-        # update the selectInput
-        updateSelectInput(session = session,
-                          inputId = "select_class",
-                          label = "Select a lipid class:",
-                          choices = class_names)
-        
-        # return the dataframe
-        return(df)
-      }
+      # add datapath and sheet_names to dataframe
+      df <- data_frame(datapath = rep(myfiles()$datapath, each = length(sheet_names)), 
+                       sheet_names = rep(sheet_names, nrow(myfiles())))
+      # read all the files
+      df <- df %>%
+        mutate(batch = rep(seq(1, length(unique(datapath))), each = length(unique(sheet_names)))) %>%
+        mutate(batch_bar = rep(c(1, 2), each = length(unique(sheet_names)), length.out = length(unique(sheet_names)) * length(unique(datapath)))) %>%
+        mutate(data = map2(.x = datapath,
+                           .y = sheet_names,
+                           .f = ~ read_excel(path = .x,
+                                             sheet = .y,
+                                             col_names = TRUE,
+                                             na = "."))) %>%
+        mutate(data = map2(.x = data,
+                           .y = batch,
+                           .f = ~ mutate(.x, batch = .y))) %>%
+        mutate(data = map2(.x = data,
+                           .y = batch_bar,
+                           .f = ~ mutate(.x, batch_bar = .y)))
+      
+      # update the lipid class selection to the classes actual present in the QC files
+      # get the columns names of dataframe 3
+      class_names <- colnames(df$data[[3]])
+      # only keep the real lipid class names
+      class_names <- subset(class_names, !(class_names %in% c("Name", "batch", "batch_bar")))
+      # update the selectInput
+      updateSelectInput(session = session,
+                        inputId = "select_class",
+                        label = "Select a lipid class:",
+                        choices = class_names)
+      
+      # return the dataframe
+      return(df)
   })
     
     all <- reactive({
-      if (is.null(df())) {
-        return(NULL)
-      } else {
-        # get the parameters
-        myparams <- params()
-        my_sample_type <- sample_type()
-        
-        # merge into one dataframe
-        all <- df() %>%
-          filter(sheet_names == myparams$sheetname) %>%
-          select(data) %>%
-          unnest %>%
-          filter((my_sample_type$invert == TRUE & !grepl(x = Name, pattern = my_sample_type$qc)) |
-                   (my_sample_type$invert == FALSE & grepl(x = Name, pattern = my_sample_type$qc)))     #  select which samples you want to see
-        
-        # looking at the lipid classes or species
-        switch(myparams$type,
-               "class" = {all %>%
-                   gather(lipid, value, -Name, -batch, -batch_bar)  %>%
-                   mutate(Name = factor(Name, levels = unique(Name)),
-                          lipid = as.factor(lipid),
-                          batch = as.factor(batch),
-                          batch_bar = as.factor(batch_bar)) },
-               "species" = {
-                 all %>%
-                   gather(lipid, value, -Name, -batch)  %>%
-                   mutate(lipid_class = as.factor(gsub(x = lipid,
-                                                       pattern = "[\\(]{0,1}[0-9.].*",
-                                                       replacement = ""))) %>%
-                   mutate(Name = factor(Name, levels = unique(Name)),
-                          lipid = factor(lipid, levels = unique(lipid)),
-                          batch = as.factor(batch))},
-               "fa_species" = {
-                 all %>%
-                   gather(lipid, value, -Name, -batch)  %>%
-                   mutate(lipid_class = as.factor(gsub(x = lipid,
-                                                       pattern = "[\\(](FA).*",
-                                                       replacement = ""))) %>%
-                   mutate(Name = factor(Name, levels = unique(Name)),
-                          lipid = as.factor(lipid),
-                          batch = as.factor(batch))
-               })
-      }
+      req(df)
+      req(params)
+      req(sample_type)
+      
+      # get the parameters
+      myparams <- params()
+      my_sample_type <- sample_type()
+      
+      # merge into one dataframe
+      all <- df() %>%
+        filter(sheet_names == myparams$sheetname) %>%
+        select(data) %>%
+        unnest %>%
+        filter((my_sample_type$invert == TRUE & !grepl(x = Name, pattern = my_sample_type$qc)) |
+                 (my_sample_type$invert == FALSE & grepl(x = Name, pattern = my_sample_type$qc)))     #  select which samples you want to see
+      
+      # looking at the lipid classes or species
+      switch(myparams$type,
+             "class" = {all %>%
+                 gather(lipid, value, -Name, -batch, -batch_bar)  %>%
+                 mutate(Name = factor(Name, levels = unique(Name)),
+                        lipid = as.factor(lipid),
+                        batch = as.factor(batch),
+                        batch_bar = as.factor(batch_bar)) },
+             "species" = {
+               all %>%
+                 gather(lipid, value, -Name, -batch)  %>%
+                 mutate(lipid_class = as.factor(gsub(x = lipid,
+                                                     pattern = "[\\(]{0,1}[0-9.].*",
+                                                     replacement = ""))) %>%
+                 mutate(Name = factor(Name, levels = unique(Name)),
+                        lipid = factor(lipid, levels = unique(lipid)),
+                        batch = as.factor(batch))},
+             "fa_species" = {
+               all %>%
+                 gather(lipid, value, -Name, -batch)  %>%
+                 mutate(lipid_class = as.factor(gsub(x = lipid,
+                                                     pattern = "[\\(](FA).*",
+                                                     replacement = ""))) %>%
+                 mutate(Name = factor(Name, levels = unique(Name)),
+                        lipid = as.factor(lipid),
+                        batch = as.factor(batch))
+             })
     })
 
     output$my_table <- DT::renderDataTable({
-      if (is.null(all())) {
-        return(NULL)
-      } else {
-        myparams <- params()
-        #do the stats
-        all <- switch(myparams$type,
-                     "class" = all(),
-                     "species" = all() %>% filter(lipid_class == input$select_class),
-                     "fa_species" = all() %>% filter(lipid_class == input$select_class))
-        all %>%
-          select(lipid, value, Name) %>%
-          group_by(lipid) %>%
-          summarise(mean = mean(value, na.rm = TRUE),
-                    stdev = sd(value, na.rm = TRUE),
-                    RSD = stdev / mean * 100) %>%
-          datatable(colnames = c(params()$col_title, "Mean", "St.dev.", "RSD [%]"),
-                    options = list(dom = "tp"), 
-                    selection = myparams$row_selection,            # remove the search field
-                    rownames = FALSE) %>% 
-          formatRound(columns = c("mean", "stdev", "RSD"), digits = 2)
-      }
+      req(all)
+      req(params)
+      
+      myparams <- params()
+      #do the stats
+      all <- switch(myparams$type,
+                    "class" = all(),
+                    "species" = all() %>% filter(lipid_class == input$select_class),
+                    "fa_species" = all() %>% filter(lipid_class == input$select_class))
+      all %>%
+        select(lipid, value, Name) %>%
+        group_by(lipid) %>%
+        summarise(mean = mean(value, na.rm = TRUE),
+                  stdev = sd(value, na.rm = TRUE),
+                  RSD = stdev / mean * 100) %>%
+        datatable(colnames = c(params()$col_title, "Mean", "St.dev.", "RSD [%]"),
+                  options = list(dom = "tp"), 
+                  selection = myparams$row_selection,            # remove the search field
+                  rownames = FALSE) %>% 
+        formatRound(columns = c("mean", "stdev", "RSD"), digits = 2)
     })
 
     output$info <- renderDataTable({
-      if (!is.null(all())) {
-        myparams <- params()
-        all <- switch(myparams$type,
-                      "class" = all(),
-                      "species" = {
-                        if (length(input$my_table_rows_selected) == 0) {
-                          all <- all() %>% filter(lipid_class == input$select_class) 
-                        } else {
-                          all <- all() %>% filter(lipid_class == input$select_class)
-                          x <- levels(droplevels(all$lipid))[input$my_table_rows_selected]
-                          all %>% filter(lipid %in% x)
-                        }},
-                      "fa_species" = {
-                        if (length(input$my_table_rows_selected) == 0) {
-                          all <- all() %>% filter(lipid_class == input$select_class) 
-                        } else {
-                          all <- all() %>% filter(lipid_class == input$select_class)
-                          x <- levels(droplevels(all$lipid))[input$my_table_rows_selected]
-                          all %>% filter(lipid %in% x)
-                        }})
-      }
+      req(all)
+      req(params)
+      
+      myparams <- params()
+      all <- switch(myparams$type,
+                    "class" = all(),
+                    "species" = {
+                      if (length(input$my_table_rows_selected) == 0) {
+                        all <- all() %>% filter(lipid_class == input$select_class) 
+                      } else {
+                        all <- all() %>% filter(lipid_class == input$select_class)
+                        x <- levels(droplevels(all$lipid))[input$my_table_rows_selected]
+                        all %>% filter(lipid %in% x)
+                      }},
+                    "fa_species" = {
+                      if (length(input$my_table_rows_selected) == 0) {
+                        all <- all() %>% filter(lipid_class == input$select_class) 
+                      } else {
+                        all <- all() %>% filter(lipid_class == input$select_class)
+                        x <- levels(droplevels(all$lipid))[input$my_table_rows_selected]
+                        all %>% filter(lipid %in% x)
+                      }})
+      
       if (!is.null(input$plot_click)) {
         data_point <- nearPoints(all, input$plot_click, threshold = 10, maxpoints = 1)
       }
@@ -225,86 +222,86 @@ shinyServer(
     })
 
     output$my_plot <- renderPlot({
-      if (is.null(all())) {
-        return(NULL)
-      } else {
-        myparams <- params()
-        mygraph <- input$select_graph
-        
-        all <- switch(myparams$type,
-                     "class" = all(),
-                     "species" = {
-                       mygraph <- "line"
-                       if (length(input$my_table_rows_selected) == 0) {
-                         all <- all() %>% filter(lipid_class == input$select_class) 
-                       } else {
-                         all <- all() %>% filter(lipid_class == input$select_class)
-                         x <- levels(droplevels(all$lipid))[input$my_table_rows_selected]
-                         all %>% filter(lipid %in% x)
-                       }},
-                       "fa_species" = {
-                         mygraph <- "line"
-                         if (length(input$my_table_rows_selected) == 0) {
-                           all <- all() %>% filter(lipid_class == input$select_class) 
-                         } else {
-                           all <- all() %>% filter(lipid_class == input$select_class)
-                           x <- levels(droplevels(all$lipid))[input$my_table_rows_selected]
-                           all %>% filter(lipid %in% x)
-                         }})
-        if (mygraph == "line") {
-          p <- all %>%
-            ggplot() +
-            geom_point(aes(x = Name,
-                           y = value,
-                           color = lipid,
-                           shape = batch),
-                       size = 3) +
-            geom_path(aes(x = Name,
-                          y = value,
-                          color = lipid,
-                          group = lipid))
-          if (nrow(myfiles()) == 1) {
-            p <- p + guides(color = "none",
-                            shape = "none")
-          } else {
-            p <- p + guides(color = "none",
-                            shape = guide_legend(title = "Batch")) 
-          }
-          p <- p + theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-            xlab("QC sample ID") +
-            ylab(params()$ylab)
-          if (myparams$type == "class") {
-            p <- p + facet_wrap(~ lipid, ncol = 3, scales = "free_y")
-          }
-        } else {
-          p <- all %>%
-            group_by(lipid) %>%
-            mutate(mean = mean(value, na.rm = TRUE),
-                   stdev = sd(value, na.rm = TRUE),
-                   zscore = abs((value - mean) / stdev),
-                   RSD = round((stdev / mean * 100), digits = 1 )) %>%
-            ggplot() +
-            geom_bar(aes(x = Name, 
+      req(all)
+      req(params)
+      req(input$select_graph)
+      
+      myparams <- params()
+      mygraph <- input$select_graph
+      
+      all <- switch(myparams$type,
+                    "class" = all(),
+                    "species" = {
+                      mygraph <- "line"
+                      if (length(input$my_table_rows_selected) == 0) {
+                        all <- all() %>% filter(lipid_class == input$select_class) 
+                      } else {
+                        all <- all() %>% filter(lipid_class == input$select_class)
+                        x <- levels(droplevels(all$lipid))[input$my_table_rows_selected]
+                        all %>% filter(lipid %in% x)
+                      }},
+                    "fa_species" = {
+                      mygraph <- "line"
+                      if (length(input$my_table_rows_selected) == 0) {
+                        all <- all() %>% filter(lipid_class == input$select_class) 
+                      } else {
+                        all <- all() %>% filter(lipid_class == input$select_class)
+                        x <- levels(droplevels(all$lipid))[input$my_table_rows_selected]
+                        all %>% filter(lipid %in% x)
+                      }})
+      if (mygraph == "line") {
+        p <- all %>%
+          ggplot() +
+          geom_point(aes(x = Name,
                          y = value,
-                         fill = zscore,
-                         linetype = batch_bar),
-                     stat = "identity",
-                     color = "black") +
-            geom_line(aes(x = Name,
-                          y = mean,
-                          group = 1),
-                      color = "black",
-                      size = 1) +
-            facet_wrap(~ lipid, ncol = 3, scales = "free_y") +
-            scale_fill_gradientn(colors = c("green", "yellow", "red"),
-                                 values = scales::rescale(x = c(0, 2, 4))) +     # needs to be scaled between 0 and 1!!!
-            guides(linetype = "none") +
-            theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-            xlab("QC sample ID") +
-            ylab(params()$ylab)
+                         color = lipid,
+                         shape = batch),
+                     size = 3) +
+          geom_path(aes(x = Name,
+                        y = value,
+                        color = lipid,
+                        group = lipid))
+        if (nrow(myfiles()) == 1) {
+          p <- p + guides(color = "none",
+                          shape = "none")
+        } else {
+          p <- p + guides(color = "none",
+                          shape = guide_legend(title = "Batch")) 
         }
-        p
+        p <- p + theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+          xlab("QC sample ID") +
+          ylab(params()$ylab)
+        if (myparams$type == "class") {
+          p <- p + facet_wrap(~ lipid, ncol = 3, scales = "free_y")
+        }
+      } else {
+        p <- all %>%
+          group_by(lipid) %>%
+          mutate(mean = mean(value, na.rm = TRUE),
+                 stdev = sd(value, na.rm = TRUE),
+                 zscore = abs((value - mean) / stdev),
+                 RSD = round((stdev / mean * 100), digits = 1 )) %>%
+          ggplot() +
+          geom_bar(aes(x = Name, 
+                       y = value,
+                       fill = zscore,
+                       linetype = batch_bar),
+                   stat = "identity",
+                   color = "black") +
+          geom_line(aes(x = Name,
+                        y = mean,
+                        group = 1),
+                    color = "black",
+                    size = 1) +
+          facet_wrap(~ lipid, ncol = 3, scales = "free_y") +
+          scale_fill_gradientn(colors = c("green", "yellow", "red"),
+                               values = scales::rescale(x = c(0, 2, 4))) +     # needs to be scaled between 0 and 1!!!
+          guides(linetype = "none") +
+          theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+          xlab("QC sample ID") +
+          ylab(params()$ylab)
       }
+      p
     })
     
     output$help_session <- renderPrint({
