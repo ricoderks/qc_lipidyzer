@@ -8,12 +8,16 @@ library(DT)
 library(purrr)
 library(tibble)
 
+# default sheetnames used in the result files from the lipidyzer
 sheet_names <- c("Lipid Species Concentrations",
                  "Lipid Species Composition",
                  "Lipid Class Concentration",
                  "Lipid Class Composition",
                  "Fatty Acid Concentration",
                  "Fatty Acid Composition")
+
+# load some extra helper functions
+source("helper.R")
 
 shinyServer(
   function(input, output, session) {
@@ -29,9 +33,9 @@ shinyServer(
     
     sample_type <- reactive({
       switch(input$select_sample_type,
-             "QC_normal" = list(qc = "QC-[0-9]*", invert = FALSE),
-             "QC_spike" = list(qc = "QC_SPIKE*", invert = FALSE),
-             "Samples" = list(qc = "QC*", invert = TRUE))
+             "QC_normal" = list(type = "qc", qc = "QC-[0-9]*", invert = FALSE),
+             "QC_spike" = list(type = "qc", qc = "QC_SPIKE*", invert = FALSE),
+             "Samples" = list(type = "sample", qc = "QC*", invert = TRUE))
     })
 
     myfiles <- reactive({
@@ -226,6 +230,8 @@ shinyServer(
       req(all())
       req(params())
       req(input$select_graph)
+      req(myfiles())
+      req(sample_type())
       
       myparams <- params()
       mygraph <- input$select_graph
@@ -250,58 +256,14 @@ shinyServer(
                         x <- levels(droplevels(all$lipid))[input$my_table_rows_selected]
                         all %>% filter(lipid %in% x)
                       }})
-      if (mygraph == "line") {
-        p <- all %>%
-          ggplot() +
-          geom_point(aes(x = Name,
-                         y = value,
-                         color = lipid,
-                         shape = batch),
-                     size = 3) +
-          geom_path(aes(x = Name,
-                        y = value,
-                        color = lipid,
-                        group = lipid))
-        if (nrow(myfiles()) == 1) {
-          p <- p + guides(color = "none",
-                          shape = "none")
-        } else {
-          p <- p + guides(color = "none",
-                          shape = guide_legend(title = "Batch")) 
-        }
-        p <- p + theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-          xlab("QC sample ID") +
-          ylab(params()$ylab)
-        if (myparams$type == "class") {
-          p <- p + facet_wrap(~ lipid, ncol = 3, scales = "free_y")
-        }
-      } else {
-        p <- all %>%
-          group_by(lipid) %>%
-          mutate(mean = mean(value, na.rm = TRUE),
-                 stdev = sd(value, na.rm = TRUE),
-                 zscore = abs((value - mean) / stdev),
-                 RSD = round((stdev / mean * 100), digits = 1 )) %>%
-          ggplot() +
-          geom_bar(aes(x = Name, 
-                       y = value,
-                       fill = zscore,
-                       linetype = batch_bar),
-                   stat = "identity",
-                   color = "black") +
-          geom_line(aes(x = Name,
-                        y = mean,
-                        group = 1),
-                    color = "black",
-                    size = 1) +
-          facet_wrap(~ lipid, ncol = 3, scales = "free_y") +
-          scale_fill_gradientn(colors = c("green", "yellow", "red"),
-                               values = scales::rescale(x = c(0, 2, 4))) +     # needs to be scaled between 0 and 1!!!
-          guides(linetype = "none") +
-          theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-          xlab("QC sample ID") +
-          ylab(params()$ylab)
-      }
+      # select the correct graph
+      switch(sample_type()$type,
+             "qc" = {
+               switch(mygraph,
+                      "line" = { p <- qc_line(data = all, my_files = myfiles(), params = myparams) },
+                      "bar" = { p <- qc_bar(data = all, my_files = myfiles(), params = myparams) } )
+             },
+             "sample" = { p <- qc_line(data = all, my_files = myfiles(), params = myparams) } )
       p
     })
     
