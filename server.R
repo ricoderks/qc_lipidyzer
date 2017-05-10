@@ -240,7 +240,7 @@ shinyServer(
           data_point %>% 
             select(Name, lipid, value) %>%
             filter(Name != "") %>%    # remove some empty rows
-            datatable(options = list(dom = "tp", pageLenght = 5), selection = "none", rownames = FALSE)
+            datatable(options = list(dom = "tp", pageLength = 5), selection = "none", rownames = FALSE)
         }
       } 
     })

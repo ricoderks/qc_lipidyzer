@@ -75,7 +75,7 @@ shinyUI(navbarPage("Lipidyzer analysis", selected = "Results",
                             fluidRow(
                               column(12,
                                      plotOutput("my_plot", height = "800px", 
-                                                #click = "plot_click",
+                                                click = "plot_click",
                                                 brush = "plot_brush")))),
                    tabPanel("Help",
                             h3("Introduction"),
