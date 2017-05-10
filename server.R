@@ -50,7 +50,8 @@ shinyServer(
     })
 
     output$fileUploaded <- reactive({
-      return(!is.null(myfiles()))
+      req(myfiles())
+      return(TRUE)
     })
     
     outputOptions(output, "fileUploaded", suspendWhenHidden = FALSE)
@@ -74,7 +75,7 @@ shinyServer(
     )
     
     df <- reactive({
-      req(myfiles)
+      req(myfiles())
       
       # read all excel files
       # add datapath and sheet_names to dataframe
@@ -113,9 +114,9 @@ shinyServer(
   })
     
     all <- reactive({
-      req(df)
-      req(params)
-      req(sample_type)
+      req(df())
+      req(params())
+      req(sample_type())
       
       # get the parameters
       myparams <- params()
@@ -159,8 +160,8 @@ shinyServer(
     })
 
     output$my_table <- DT::renderDataTable({
-      req(all)
-      req(params)
+      req(all())
+      req(params())
       
       myparams <- params()
       #do the stats
@@ -182,8 +183,8 @@ shinyServer(
     })
 
     output$info <- renderDataTable({
-      req(all)
-      req(params)
+      req(all())
+      req(params())
       
       myparams <- params()
       all <- switch(myparams$type,
@@ -222,8 +223,8 @@ shinyServer(
     })
 
     output$my_plot <- renderPlot({
-      req(all)
-      req(params)
+      req(all())
+      req(params())
       req(input$select_graph)
       
       myparams <- params()
