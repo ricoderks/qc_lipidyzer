@@ -1,6 +1,6 @@
 library(shiny)
 
-shinyUI(navbarPage("Lipidyzer analysis", selected = "Results",
+shinyUI(navbarPage("Lipidyzer analysis", selected = "Files",
                    tabPanel("Files",
                             fluidRow(
                               column(12,
@@ -13,7 +13,7 @@ shinyUI(navbarPage("Lipidyzer analysis", selected = "Results",
                             fluidRow(
                               column(12,
                                      selectInput(inputId = "select_sheet_tbl",
-                                                 label = "Select a sheet to view:",
+                                                 label = "Select a sheet:",
                                                  choices = c("Lipid species concentration" = "Lipid Species Concentrations",
                                                              "Lipid species composition" = "Lipid Species Composition",
                                                              "Lipid class concentration" = "Lipid Class Concentration",
@@ -30,13 +30,13 @@ shinyUI(navbarPage("Lipidyzer analysis", selected = "Results",
                               column(4,
                                      inputPanel(
                                        radioButtons(inputId = "select_sample_type",
-                                                   label = "Select which sample type you want to see:",
+                                                   label = "Select sample type:",
                                                    choices = c("normal QC" = "QC_normal",
                                                                "QC spike" = "QC_spike",
                                                                "Samples" = "Samples"),
-                                                   selected = "QC_normal"),
+                                                   selected = "Samples"),
                                        selectInput(inputId = "select_sheet",
-                                                   label = "Select a sheet to view:",
+                                                   label = "Select a sheet:",
                                                    choices = c("Lipid species concentration" = "Lipid Species Concentration",
                                                                "Lipid species composition" = "Lipid Species Composition",
                                                                "Lipid class concentration" = "Lipid Class Concentration",
@@ -60,7 +60,7 @@ shinyUI(navbarPage("Lipidyzer analysis", selected = "Results",
                                        conditionalPanel(condition = "input.select_sheet == 'Lipid Class Concentration' || input.select_sheet == 'Lipid Class Composition'",
                                                         conditionalPanel(condition = "input.select_sample_type == 'QC_normal' || input.select_sample_type == 'QC_spike'",
                                                                          radioButtons(inputId = "select_graph",
-                                                                                      label = "Select how to show the QC graph:",
+                                                                                      label = "Select QC graph style:",
                                                                                       choices = c("Line" = "line",
                                                                                                   "Bar" = "bar"),
                                                                                       selected = "line"))
@@ -100,10 +100,10 @@ shinyUI(navbarPage("Lipidyzer analysis", selected = "Results",
                     </ul>")),
                             h3("Start"),
                             p(HTML("<ul>
-                        <li>To show the QC results from a Lipidyzer study load the Excel output file (.xlsx). Multiple files at once is possible.</li>
+                        <li>To show the results from a Lipidyzer study load the Excel output file (.xlsx). Multiple files at once is possible.</li>
                         <li>Select which sheet from the Excel file you want to see (default <i>Lipid Class Concentration</i>).</li>
-                        <li>Select which QC sample you want to see (default is the <i>normal QC samples</i>).</li>
-                        <li>If you select a <b>Lipid Class *</b> sheet, you can choose between a line graph or bar graph.</li>
+                        <li>Select which sample type you want to see (default is <i>Samples</i>).</li>
+                        <li>For QC samples : if you select a <b>Lipid Class *</b> sheet, you can choose between a line graph or bar graph.</li>
                         <li>If you select a <b>Lipid Species *</b> or <b>Fatty Acid *</b> sheet, select which lipid class you want to see (default <i>CE</i>).</li>
                         <li>If you select a <b>Lipid Species *</b> or <b>Fatty Acid *</b> sheet it is possible to plot the individual species by clicking on the row in the table. Multiple selections is possible.</li>
                         </ul>")),
@@ -113,7 +113,8 @@ shinyUI(navbarPage("Lipidyzer analysis", selected = "Results",
                                     <li>You can select multiple points by click and drag.</li>
                                     </ul>")),
                             h3("Report"),
-                            p("A report with all graphs and tables can be downloaded by clicking the ", strong("Generate report"), " button. This may take 10-20 seconds."),
+                            p("For QC samples a report with all graphs and tables can be downloaded by clicking the ", strong("Generate report"), " button. This may take 10-20 seconds. 
+                              This button is available if the sample type is selected to one of the QC samples."),
                             h3("Issues"),
                             p("If you have any issue please send me an email or go to the ", a("issue tracker.", href = "https://git.lumc.nl/rjederks/lipidyzer/issues", target = "_blank")),
                             h3("Session info"),

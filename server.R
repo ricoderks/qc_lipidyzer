@@ -202,7 +202,7 @@ shinyServer(
                                  pageLength = 5), 
                   selection = params()$row_selection,            # remove the search field
                   rownames = FALSE) %>% 
-        formatRound(columns = c("mean", "stdev", "RSD"), digits = 2)
+        formatRound(columns = c("mean", "stdev", "RSD"), digits = 1)
     })
 
     output$info <- renderDataTable({
