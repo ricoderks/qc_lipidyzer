@@ -168,6 +168,20 @@ shinyServer(
              })
     })
 
+    output$tbl_all_data <- DT::renderDataTable({
+      req(df_all())
+      req(input$select_sheet_tbl)
+      
+      df_all() %>%
+        filter(sheet_names == input$select_sheet_tbl) %>%
+        select(data) %>%
+        unnest() %>%
+        select(-batch, -batch_bar) %>%
+        datatable(selection = "none",
+                  options = list(dom = "tp",
+                                 pageLength = 25))
+    })
+    
     output$my_table <- DT::renderDataTable({
       req(df())
       req(params())
@@ -184,7 +198,8 @@ shinyServer(
                   stdev = sd(value, na.rm = TRUE),
                   RSD = stdev / mean * 100) %>%
         datatable(colnames = c(params()$col_title, "Mean", "St.dev.", "RSD [%]"),
-                  options = list(dom = "tp"), 
+                  options = list(dom = "tp",
+                                 pageLength = 5), 
                   selection = params()$row_selection,            # remove the search field
                   rownames = FALSE) %>% 
         formatRound(columns = c("mean", "stdev", "RSD"), digits = 2)
@@ -198,7 +213,7 @@ shinyServer(
                     "class" = df(),
                     "species" = {
                       if (length(input$my_table_rows_selected) == 0) {
-                        df <- df() %>% filter(lipid_class == input$select_class) 
+                        df() %>% filter(lipid_class == input$select_class) 
                       } else {
                         df <- df() %>% filter(lipid_class == input$select_class)
                         x <- levels(droplevels(df$lipid))[input$my_table_rows_selected]
@@ -206,7 +221,7 @@ shinyServer(
                       }},
                     "fa_species" = {
                       if (length(input$my_table_rows_selected) == 0) {
-                        df <- df() %>% filter(lipid_class == input$select_class) 
+                        df() %>% filter(lipid_class == input$select_class) 
                       } else {
                         df <- df() %>% filter(lipid_class == input$select_class)
                         x <- levels(droplevels(df$lipid))[input$my_table_rows_selected]
@@ -214,10 +229,10 @@ shinyServer(
                       }})
       
       if (!is.null(input$plot_click)) {
-        data_point <- nearPoints(df, input$plot_click, threshold = 10, maxpoints = 1)
+        data_point <- nearPoints(df, input$plot_click, threshold = 20, maxpoints = 1)
       }
       if (!is.null(input$plot_brush)) {
-        data_point <- brushedPoints(df, input$plot_brush)
+        data_point <- brushedPoints(df = df, brush = input$plot_brush)
       }
       # this is what is returned!!
       if (exists("data_point")) {
@@ -225,51 +240,57 @@ shinyServer(
           data_point %>% 
             select(Name, lipid, value) %>%
             filter(Name != "") %>%    # remove some empty rows
-            datatable(options = list(dom = "tp"), selection = "none", rownames = FALSE)
+            datatable(options = list(dom = "tp", pageLenght = 5), selection = "none", rownames = FALSE)
         }
       } 
     })
 
+    # prepare the dataframe for plotting
+    plot_df <- reactive({
+      req(df())
+      req(input$select_class)
+      
+      plot_df <- switch(params()$type,
+                   "class" = df(),
+                   "species" = {
+                        if (length(input$my_table_rows_selected) == 0) {
+                       df <- df() %>% filter(lipid_class == input$select_class) 
+                     } else {
+                       df <- df() %>% filter(lipid_class == input$select_class)
+                       x <- levels(droplevels(df$lipid))[input$my_table_rows_selected]
+                       df %>% filter(lipid %in% x)
+                     }},
+                   "fa_species" = {
+                     if (length(input$my_table_rows_selected) == 0) {
+                       df <- df() %>% filter(lipid_class == input$select_class) 
+                     } else {
+                       df <- df() %>% filter(lipid_class == input$select_class)
+                       x <- levels(droplevels(df$lipid))[input$my_table_rows_selected]
+                       df %>% filter(lipid %in% x)
+                     }})
+      return(plot_df)
+    })
+    
     output$my_plot <- renderPlot({
       req(df())
       req(params())
       req(myfiles())
       req(sample_type())
       req(input$select_graph)
-      #req(input$my_table_rows_selected)
-      
-      # this one is used to override the QC graph setting (line or bar)
-      mygraph <- input$select_graph
-      
-      df <- switch(params()$type,
-                    "class" = df(),
-                    "species" = {
-                      mygraph <- "line"
-                      if (length(input$my_table_rows_selected) == 0) {
-                        df <- df() %>% filter(lipid_class == input$select_class) 
-                      } else {
-                        df <- df() %>% filter(lipid_class == input$select_class)
-                        x <- levels(droplevels(df$lipid))[input$my_table_rows_selected]
-                        df %>% filter(lipid %in% x)
-                      }},
-                    "fa_species" = {
-                      mygraph <- "line"
-                      if (length(input$my_table_rows_selected) == 0) {
-                        df <- df() %>% filter(lipid_class == input$select_class) 
-                      } else {
-                        df <- df() %>% filter(lipid_class == input$select_class)
-                        x <- levels(droplevels(df$lipid))[input$my_table_rows_selected]
-                        df %>% filter(lipid %in% x)
-                      }})
+
+      mygraph <- switch(params()$type,
+                    "class" = input$select_graph,
+                    "species" = "line",
+                    "fa_species" = "line")
       # select the correct graph
       switch(sample_type()$type,
              "qc" = {
                switch(mygraph,
-                      "line" = { p <- qc_line(data = df, my_files = myfiles(), params = params()) },
-                      "bar" = { p <- qc_bar(data = df, my_files = myfiles(), params = params()) } )
+                      "line" = { p <- qc_line(data = plot_df(), my_files = myfiles(), params = params()) },
+                      "bar" = { p <- qc_bar(data = plot_df(), my_files = myfiles(), params = params()) } )
              },
              # this should become the sample plot for now the qc_line
-             "sample" = { p <- sample_heatmap(data = df, my_files = myfiles(), params = params()) } )
+             "sample" = { p <- sample_heatmap(data = plot_df(), my_files = myfiles(), params = params()) } )
       p
     })
     

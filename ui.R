@@ -9,6 +9,21 @@ shinyUI(navbarPage("Lipidyzer analysis", selected = "Results",
                                                  "Select XLSX files from lipidyzer:",
                                                  multiple = TRUE)
                                      )))),
+                   tabPanel("Data",
+                            fluidRow(
+                              column(12,
+                                     selectInput(inputId = "select_sheet_tbl",
+                                                 label = "Select a sheet to view:",
+                                                 choices = c("Lipid species concentration" = "Lipid Species Concentrations",
+                                                             "Lipid species composition" = "Lipid Species Composition",
+                                                             "Lipid class concentration" = "Lipid Class Concentration",
+                                                             "Lipid class composition" = "Lipid Class Composition",
+                                                             "Fatty acid concentration" = "Fatty Acid Concentration",
+                                                             "Fatty acid composition" = "Fatty Acid Composition"),
+                                                 selected = "Lipid Class Concentration"),
+                                     div(DT::dataTableOutput("tbl_all_data"), style = "font-size: 80%")
+                              )
+                            )),
                    tabPanel("Results",
                             #textOutput("my_text"),
                             fluidRow(
@@ -60,7 +75,7 @@ shinyUI(navbarPage("Lipidyzer analysis", selected = "Results",
                             fluidRow(
                               column(12,
                                      plotOutput("my_plot", height = "800px", 
-                                                click = "plot_click",
+                                                #click = "plot_click",
                                                 brush = "plot_brush")))),
                    tabPanel("Help",
                             h3("Introduction"),
