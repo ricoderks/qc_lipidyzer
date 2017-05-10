@@ -170,10 +170,9 @@ shinyServer(
     output$my_table <- DT::renderDataTable({
       req(df())
       req(params())
-      
-      myparams <- params()
+
       #do the stats
-      df <- switch(myparams$type,
+      df <- switch(params()$type,
                     "class" = df(),
                     "species" = df() %>% filter(lipid_class == input$select_class),
                     "fa_species" = df() %>% filter(lipid_class == input$select_class))
@@ -185,7 +184,7 @@ shinyServer(
                   RSD = stdev / mean * 100) %>%
         datatable(colnames = c(params()$col_title, "Mean", "St.dev.", "RSD [%]"),
                   options = list(dom = "tp"), 
-                  selection = myparams$row_selection,            # remove the search field
+                  selection = params()$row_selection,            # remove the search field
                   rownames = FALSE) %>% 
         formatRound(columns = c("mean", "stdev", "RSD"), digits = 2)
     })
@@ -194,8 +193,7 @@ shinyServer(
       req(df())
       req(params())
       
-      myparams <- params()
-      df <- switch(myparams$type,
+      df <- switch(params()$type,
                     "class" = df(),
                     "species" = {
                       if (length(input$my_table_rows_selected) == 0) {
@@ -233,14 +231,15 @@ shinyServer(
     output$my_plot <- renderPlot({
       req(df())
       req(params())
-      req(input$select_graph)
       req(myfiles())
       req(sample_type())
+      req(input$select_graph)
+      #req(input$my_table_rows_selected)
       
-      myparams <- params()
+      # this one is used to override the QC graph setting (line or bar)
       mygraph <- input$select_graph
       
-      df <- switch(myparams$type,
+      df <- switch(params()$type,
                     "class" = df(),
                     "species" = {
                       mygraph <- "line"
@@ -264,11 +263,11 @@ shinyServer(
       switch(sample_type()$type,
              "qc" = {
                switch(mygraph,
-                      "line" = { p <- qc_line(data = df, my_files = myfiles(), params = myparams) },
-                      "bar" = { p <- qc_bar(data = df, my_files = myfiles(), params = myparams) } )
+                      "line" = { p <- qc_line(data = df, my_files = myfiles(), params = params()) },
+                      "bar" = { p <- qc_bar(data = df, my_files = myfiles(), params = params()) } )
              },
              # this should become the sample plot for now the qc_line
-             "sample" = { p <- qc_line(data = df, my_files = myfiles(), params = myparams) } )
+             "sample" = { p <- qc_line(data = df, my_files = myfiles(), params = params()) } )
       p
     })
     
