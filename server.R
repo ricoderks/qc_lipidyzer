@@ -21,6 +21,7 @@ source("helper.R")
 
 shinyServer(
   function(input, output, session) {
+    # params contains several general parameters linked to which excel sheet is selected
     params <- reactive({
       switch(input$select_sheet,
              "Lipid Species Concentration" = list(sheetname = "Lipid Species Concentrations", ylab = "Concentration", col_title = "Lipid species",row_selection = "multiple", type = "species"),
@@ -31,6 +32,7 @@ shinyServer(
              "Fatty Acid Composition" = list(sheetname = "Fatty Acid Composition", ylab = "Composition", col_title = "FA species", row_selection = "multiple", type = "fa_species"))
     })
     
+    # sample_type contains some information depending on which sample type is selected
     sample_type <- reactive({
       switch(input$select_sample_type,
              "QC_normal" = list(type = "qc", qc = "QC-[0-9]*", invert = FALSE),
