@@ -40,6 +40,7 @@ shinyServer(
              "Samples" = list(type = "sample", qc = "QC*", invert = TRUE))
     })
 
+    # prepare filenames for reading
     myfiles <- reactive({
       # check if there are already filenames
       req(input$result_files)
@@ -55,13 +56,16 @@ shinyServer(
       return(my_files)
     })
 
+    # flag to show if files are uploaded
     output$fileUploaded <- reactive({
       req(myfiles())
       return(TRUE)
     })
     
+    # flag to show if files are uploaded 
     outputOptions(output, "fileUploaded", suspendWhenHidden = FALSE)
     
+    # create report download
     output$report <- downloadHandler(
       filename = "report.html",
       content = function(file) {
@@ -80,15 +84,16 @@ shinyServer(
       }
     )
     
-    df <- reactive({
+    # read all datafiles and structure the dataframe
+    df_all <- reactive({
       req(myfiles())
       
       # read all excel files
       # add datapath and sheet_names to dataframe
-      df <- data_frame(datapath = rep(myfiles()$datapath, each = length(sheet_names)), 
+      df_all <- data_frame(datapath = rep(myfiles()$datapath, each = length(sheet_names)), 
                        sheet_names = rep(sheet_names, nrow(myfiles())))
       # read all the files
-      df <- df %>%
+      df_all <- df_all %>%
         mutate(batch = rep(seq(1, length(unique(datapath))), each = length(unique(sheet_names)))) %>%
         mutate(batch_bar = rep(c(1, 2), each = length(unique(sheet_names)), length.out = length(unique(sheet_names)) * length(unique(datapath)))) %>%
         mutate(data = map2(.x = datapath,
@@ -106,7 +111,7 @@ shinyServer(
       
       # update the lipid class selection to the classes actual present in the QC files
       # get the columns names of dataframe 3
-      class_names <- colnames(df$data[[3]])
+      class_names <- colnames(df_all$data[[3]])
       # only keep the real lipid class names
       class_names <- subset(class_names, !(class_names %in% c("Name", "batch", "batch_bar")))
       # update the selectInput
@@ -116,36 +121,33 @@ shinyServer(
                         choices = class_names)
       
       # return the dataframe
-      return(df)
+      return(df_all)
   })
     
-    all <- reactive({
-      req(df())
+    # select the data depending on which sheet is selected
+    df <- reactive({
+      req(df_all())
       req(params())
       req(sample_type())
-      
-      # get the parameters
-      myparams <- params()
-      my_sample_type <- sample_type()
-      
+
       # merge into one dataframe
-      all <- df() %>%
-        filter(sheet_names == myparams$sheetname) %>%
+      df <- df_all() %>%
+        filter(sheet_names == params()$sheetname) %>%
         select(data) %>%
         unnest %>%
-        filter((my_sample_type$invert == TRUE & !grepl(x = Name, pattern = my_sample_type$qc)) |
-                 (my_sample_type$invert == FALSE & grepl(x = Name, pattern = my_sample_type$qc)))     #  select which samples you want to see
+        filter((sample_type()$invert == TRUE & !grepl(x = Name, pattern = sample_type()$qc)) |
+                 (sample_type()$invert == FALSE & grepl(x = Name, pattern = sample_type()$qc)))     #  select which samples you want to see
       
       # looking at the lipid classes or species
-      switch(myparams$type,
-             "class" = {all %>%
+      switch(params()$type,
+             "class" = {df %>%
                  gather(lipid, value, -Name, -batch, -batch_bar)  %>%
                  mutate(Name = factor(Name, levels = unique(Name)),
                         lipid = as.factor(lipid),
                         batch = as.factor(batch),
                         batch_bar = as.factor(batch_bar)) },
              "species" = {
-               all %>%
+               df %>%
                  gather(lipid, value, -Name, -batch)  %>%
                  mutate(lipid_class = as.factor(gsub(x = lipid,
                                                      pattern = "[\\(]{0,1}[0-9.].*",
@@ -154,7 +156,7 @@ shinyServer(
                         lipid = factor(lipid, levels = unique(lipid)),
                         batch = as.factor(batch))},
              "fa_species" = {
-               all %>%
+               df %>%
                  gather(lipid, value, -Name, -batch)  %>%
                  mutate(lipid_class = as.factor(gsub(x = lipid,
                                                      pattern = "[\\(](FA).*",
@@ -166,16 +168,16 @@ shinyServer(
     })
 
     output$my_table <- DT::renderDataTable({
-      req(all())
+      req(df())
       req(params())
       
       myparams <- params()
       #do the stats
-      all <- switch(myparams$type,
-                    "class" = all(),
-                    "species" = all() %>% filter(lipid_class == input$select_class),
-                    "fa_species" = all() %>% filter(lipid_class == input$select_class))
-      all %>%
+      df <- switch(myparams$type,
+                    "class" = df(),
+                    "species" = df() %>% filter(lipid_class == input$select_class),
+                    "fa_species" = df() %>% filter(lipid_class == input$select_class))
+      df %>%
         select(lipid, value, Name) %>%
         group_by(lipid) %>%
         summarise(mean = mean(value, na.rm = TRUE),
@@ -189,34 +191,34 @@ shinyServer(
     })
 
     output$info <- renderDataTable({
-      req(all())
+      req(df())
       req(params())
       
       myparams <- params()
-      all <- switch(myparams$type,
-                    "class" = all(),
+      df <- switch(myparams$type,
+                    "class" = df(),
                     "species" = {
                       if (length(input$my_table_rows_selected) == 0) {
-                        all <- all() %>% filter(lipid_class == input$select_class) 
+                        df <- df() %>% filter(lipid_class == input$select_class) 
                       } else {
-                        all <- all() %>% filter(lipid_class == input$select_class)
-                        x <- levels(droplevels(all$lipid))[input$my_table_rows_selected]
-                        all %>% filter(lipid %in% x)
+                        df <- df() %>% filter(lipid_class == input$select_class)
+                        x <- levels(droplevels(df$lipid))[input$my_table_rows_selected]
+                        df %>% filter(lipid %in% x)
                       }},
                     "fa_species" = {
                       if (length(input$my_table_rows_selected) == 0) {
-                        all <- all() %>% filter(lipid_class == input$select_class) 
+                        df <- df() %>% filter(lipid_class == input$select_class) 
                       } else {
-                        all <- all() %>% filter(lipid_class == input$select_class)
-                        x <- levels(droplevels(all$lipid))[input$my_table_rows_selected]
-                        all %>% filter(lipid %in% x)
+                        df <- df() %>% filter(lipid_class == input$select_class)
+                        x <- levels(droplevels(df$lipid))[input$my_table_rows_selected]
+                        df %>% filter(lipid %in% x)
                       }})
       
       if (!is.null(input$plot_click)) {
-        data_point <- nearPoints(all, input$plot_click, threshold = 10, maxpoints = 1)
+        data_point <- nearPoints(df, input$plot_click, threshold = 10, maxpoints = 1)
       }
       if (!is.null(input$plot_brush)) {
-        data_point <- brushedPoints(all, input$plot_brush)
+        data_point <- brushedPoints(df, input$plot_brush)
       }
       if (exists("data_point")) {
         if (nrow(data_point) > 0) {
@@ -229,7 +231,7 @@ shinyServer(
     })
 
     output$my_plot <- renderPlot({
-      req(all())
+      req(df())
       req(params())
       req(input$select_graph)
       req(myfiles())
@@ -238,34 +240,35 @@ shinyServer(
       myparams <- params()
       mygraph <- input$select_graph
       
-      all <- switch(myparams$type,
-                    "class" = all(),
+      df <- switch(myparams$type,
+                    "class" = df(),
                     "species" = {
                       mygraph <- "line"
                       if (length(input$my_table_rows_selected) == 0) {
-                        all <- all() %>% filter(lipid_class == input$select_class) 
+                        df <- df() %>% filter(lipid_class == input$select_class) 
                       } else {
-                        all <- all() %>% filter(lipid_class == input$select_class)
-                        x <- levels(droplevels(all$lipid))[input$my_table_rows_selected]
-                        all %>% filter(lipid %in% x)
+                        df <- df() %>% filter(lipid_class == input$select_class)
+                        x <- levels(droplevels(df$lipid))[input$my_table_rows_selected]
+                        df %>% filter(lipid %in% x)
                       }},
                     "fa_species" = {
                       mygraph <- "line"
                       if (length(input$my_table_rows_selected) == 0) {
-                        all <- all() %>% filter(lipid_class == input$select_class) 
+                        df <- df() %>% filter(lipid_class == input$select_class) 
                       } else {
-                        all <- all() %>% filter(lipid_class == input$select_class)
+                        df <- df() %>% filter(lipid_class == input$select_class)
                         x <- levels(droplevels(all$lipid))[input$my_table_rows_selected]
-                        all %>% filter(lipid %in% x)
+                        df %>% filter(lipid %in% x)
                       }})
       # select the correct graph
       switch(sample_type()$type,
              "qc" = {
                switch(mygraph,
-                      "line" = { p <- qc_line(data = all, my_files = myfiles(), params = myparams) },
-                      "bar" = { p <- qc_bar(data = all, my_files = myfiles(), params = myparams) } )
+                      "line" = { p <- qc_line(data = df, my_files = myfiles(), params = myparams) },
+                      "bar" = { p <- qc_bar(data = df, my_files = myfiles(), params = myparams) } )
              },
-             "sample" = { p <- qc_line(data = all, my_files = myfiles(), params = myparams) } )
+             # this should become the sample plot for now the qc_line
+             "sample" = { p <- qc_line(data = df, my_files = myfiles(), params = myparams) } )
       p
     })
     
