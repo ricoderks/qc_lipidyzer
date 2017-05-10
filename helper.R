@@ -116,3 +116,23 @@ qc_bar <- function(data, my_files, params) {
   
   return(p)
 }
+
+sample_heatmap <- function(data, my_files, params) {
+  p <- data %>%
+    ggplot() +
+    geom_raster(aes(x = Name,
+                    y = lipid,
+                    fill = value)) +
+    scale_fill_gradientn(colours = rainbow(4), 
+                         na.value = "white") +
+    xlab("Sample ID") +
+    guides(fill = guide_colourbar(title = params$ylab))
+  
+  p <- switch(params$type,
+         "class" = { p + ylab("Lipid class") },
+         "species" = { p + ylab("Lipid species") },
+         "fa_species" = { p + ylab("Fatty acid species") }
+  )
+  
+  return(p)
+}

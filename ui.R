@@ -59,7 +59,7 @@ shinyUI(navbarPage("Lipidyzer analysis", selected = "Results",
                                      div(DT::dataTableOutput("info"), style = "font-size: 80%"))),
                             fluidRow(
                               column(12,
-                                     plotOutput("my_plot", #height = "550px", 
+                                     plotOutput("my_plot", height = "800px", 
                                                 click = "plot_click",
                                                 brush = "plot_brush")))),
                    tabPanel("Help",

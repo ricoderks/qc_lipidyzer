@@ -95,6 +95,7 @@ shinyServer(
       # read all the files
       df_all <- df_all %>%
         mutate(batch = rep(seq(1, length(unique(datapath))), each = length(unique(sheet_names)))) %>%
+        # batch_bar is created to alternate in bar graphs between solid line and dashed line
         mutate(batch_bar = rep(c(1, 2), each = length(unique(sheet_names)), length.out = length(unique(sheet_names)) * length(unique(datapath)))) %>%
         mutate(data = map2(.x = datapath,
                            .y = sheet_names,
@@ -218,12 +219,13 @@ shinyServer(
       if (!is.null(input$plot_brush)) {
         data_point <- brushedPoints(df, input$plot_brush)
       }
+      # this is what is returned!!
       if (exists("data_point")) {
         if (nrow(data_point) > 0) {
           data_point %>% 
             select(Name, lipid, value) %>%
             filter(Name != "") %>%    # remove some empty rows
-            datatable(options = list(dom="tp"), selection = "none", rownames = FALSE)
+            datatable(options = list(dom = "tp"), selection = "none", rownames = FALSE)
         }
       } 
     })
@@ -256,7 +258,7 @@ shinyServer(
                         df <- df() %>% filter(lipid_class == input$select_class) 
                       } else {
                         df <- df() %>% filter(lipid_class == input$select_class)
-                        x <- levels(droplevels(all$lipid))[input$my_table_rows_selected]
+                        x <- levels(droplevels(df$lipid))[input$my_table_rows_selected]
                         df %>% filter(lipid %in% x)
                       }})
       # select the correct graph
@@ -267,7 +269,7 @@ shinyServer(
                       "bar" = { p <- qc_bar(data = df, my_files = myfiles(), params = params()) } )
              },
              # this should become the sample plot for now the qc_line
-             "sample" = { p <- qc_line(data = df, my_files = myfiles(), params = params()) } )
+             "sample" = { p <- sample_heatmap(data = df, my_files = myfiles(), params = params()) } )
       p
     })
     
