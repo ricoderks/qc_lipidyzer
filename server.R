@@ -187,11 +187,11 @@ shinyServer(
       req(params())
 
       #do the stats
-      df <- switch(params()$type,
+      tbl_df <- switch(params()$type,
                     "class" = df(),
                     "species" = df() %>% filter(lipid_class == input$select_class),
                     "fa_species" = df() %>% filter(lipid_class == input$select_class))
-      df %>%
+      tbl_df %>%
         select(lipid, value, Name) %>%
         group_by(lipid) %>%
         summarise(mean = mean(value, na.rm = TRUE),
