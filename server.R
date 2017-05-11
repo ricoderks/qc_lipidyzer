@@ -206,33 +206,14 @@ shinyServer(
     })
 
     output$info <- renderDataTable({
-      req(df())
+      req(plot_df())
       req(params())
       
-      df <- switch(params()$type,
-                    "class" = df(),
-                    "species" = {
-                      if (length(input$my_table_rows_selected) == 0) {
-                        df() %>% filter(lipid_class == input$select_class) 
-                      } else {
-                        df <- df() %>% filter(lipid_class == input$select_class)
-                        x <- levels(droplevels(df$lipid))[input$my_table_rows_selected]
-                        df %>% filter(lipid %in% x)
-                      }},
-                    "fa_species" = {
-                      if (length(input$my_table_rows_selected) == 0) {
-                        df() %>% filter(lipid_class == input$select_class) 
-                      } else {
-                        df <- df() %>% filter(lipid_class == input$select_class)
-                        x <- levels(droplevels(df$lipid))[input$my_table_rows_selected]
-                        df %>% filter(lipid %in% x)
-                      }})
-      
       if (!is.null(input$plot_click)) {
-        data_point <- nearPoints(df, input$plot_click, threshold = 20, maxpoints = 1)
+        data_point <- nearPoints(df = plot_df(), coordinfo = input$plot_click, threshold = 20, maxpoints = 1)
       }
       if (!is.null(input$plot_brush)) {
-        data_point <- brushedPoints(df = df, brush = input$plot_brush)
+        data_point <- brushedPoints(df = plot_df(), brush = input$plot_brush)
       }
       # this is what is returned!!
       if (exists("data_point")) {

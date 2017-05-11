@@ -1,5 +1,6 @@
 ### This file contains several functions which will be called by server.R
 
+######################################################
 # plot a QC plot as a line graph
 qc_line <- function(data, my_files, params) {
 p <- data %>%
@@ -29,63 +30,7 @@ if (params$type == "class") {
 return(p)
 }
 
-qc_bar <- function(data, my_files, params) {
-  p <- data %>%
-    group_by(lipid) %>%
-    mutate(mean = mean(value, na.rm = TRUE),
-           stdev = sd(value, na.rm = TRUE),
-           zscore = abs((value - mean) / stdev),
-           RSD = round((stdev / mean * 100), digits = 1 )) %>%
-    ggplot() +
-    geom_bar(aes(x = Name, 
-                 y = value,
-                 fill = zscore,
-                 linetype = batch_bar),
-             stat = "identity",
-             color = "black") +
-    geom_line(aes(x = Name,
-                  y = mean,
-                  group = 1),
-              color = "black",
-              size = 1) +
-    facet_wrap(~ lipid, ncol = 3, scales = "free_y") +
-    scale_fill_gradientn(colors = c("green", "yellow", "red"),
-                         values = scales::rescale(x = c(0, 2, 4))) +     # needs to be scaled between 0 and 1!!!
-    guides(linetype = "none") +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-    xlab("QC sample ID") +
-    ylab(params$ylab)
-  
-  return(p)
-}
-qc_line <- function(data, my_files, params) {
-  p <- data %>%
-    ggplot() +
-    geom_point(aes(x = Name,
-                   y = value,
-                   color = lipid,
-                   shape = batch),
-               size = 3) +
-    geom_path(aes(x = Name,
-                  y = value,
-                  color = lipid,
-                  group = lipid))
-  if (nrow(my_files) == 1) {
-    p <- p + guides(color = "none",
-                    shape = "none")
-  } else {
-    p <- p + guides(color = "none",
-                    shape = guide_legend(title = "Batch")) 
-  }
-  p <- p + theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-    xlab("QC sample ID") +
-    ylab(params$ylab)
-  if (params$type == "class") {
-    p <- p + facet_wrap(~ lipid, ncol = 3, scales = "free_y")
-  }
-  return(p)
-}
-
+######################################################
 # plot a QC plot as a bar graph
 qc_bar <- function(data, my_files, params) {
   p <- data %>%
@@ -117,6 +62,8 @@ qc_bar <- function(data, my_files, params) {
   return(p)
 }
 
+######################################################
+# plot samples as heatmap
 sample_heatmap <- function(data, my_files, params) {
   p <- data %>%
     ggplot() +
