@@ -37,13 +37,13 @@ aap <-aap %>%
   # this is for the line graph
   mutate(batch = rep(seq(1, length(unique(datapath))), each = length(unique(sheet_names)))) %>% 
   # this is for the bar graph
-  mutate(batch_bar = rep(c(1, 2), each = length(unique(sheet_names)), length.out = length(unique(datapath)) * length(unique(sheet_names)))) %>%
+  mutate(batch_bar = rep(c(1, 2), each = length(unique(sheet_names)), length.out = length(unique(datapath)) * length(unique(sheet_names))))  %>%
   mutate(data = map2(.x = datapath,
                      .y = sheet_names,
                      .f = ~ read_excel(path = .x,
                                         sheet = .y,
                                         col_names = TRUE,
-                                        na = "."))) %>%
+                                        na = ".")))  %>%
                      #  filter(! (grepl(Name, pattern = "QC_SPIKE*")) & grepl(Name, pattern = "QC-*")))) %>% # remove QC spike and select the normal QC samples
   mutate(data = map2(.x = data,
                      .y = batch,
@@ -51,6 +51,8 @@ aap <-aap %>%
   mutate(data = map2(.x = data,
                      .y = batch_bar,
                      .f = ~ mutate(.x, batch_bar = .y)))
+
+
 
 my_invert <- TRUE
 
