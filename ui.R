@@ -69,7 +69,7 @@ shinyUI(navbarPage("Lipidyzer analysis", selected = "Files",
                                                         downloadButton(outputId = "report",
                                                                        label = "Generate report")))),
                               column(4,
-                                     div(DT::dataTableOutput("my_table"), style = "font-size: 80%")),
+                                     div(DT::dataTableOutput("result_table"), style = "font-size: 80%")),
                               column(4, 
                                      div(DT::dataTableOutput("info"), style = "font-size: 80%"))),
                             fluidRow(

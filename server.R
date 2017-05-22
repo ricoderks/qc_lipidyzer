@@ -125,7 +125,7 @@ shinyServer(
       return(df_all)
   })
     
-    # select the data depending on which sheet is selected
+    # select the data depending on which sample type and result sheet is selected
     df <- reactive({
       req(df_all())
       req(params())
@@ -182,7 +182,7 @@ shinyServer(
                                  pageLength = 25))
     })
     
-    output$my_table <- DT::renderDataTable({
+    output$result_table <- DT::renderDataTable({
       req(df())
       req(params())
 
