@@ -230,23 +230,24 @@ shinyServer(
     plot_df <- reactive({
       req(df())
       req(input$select_class)
+      req(params)
       
       plot_df <- switch(params()$type,
                    "class" = df(),
                    "species" = {
-                        if (length(input$my_table_rows_selected) == 0) {
+                        if (length(input$result_table_rows_selected) == 0) {
                        df <- df() %>% filter(lipid_class == input$select_class) %>% droplevels()
                      } else {
                        df <- df() %>% filter(lipid_class == input$select_class) %>% droplevels()
-                       x <- levels(droplevels(df$lipid))[input$my_table_rows_selected]
+                       x <- levels(droplevels(df$lipid))[input$result_table_rows_selected]
                        df %>% filter(lipid %in% x)
                      }},
                    "fa_species" = {
-                     if (length(input$my_table_rows_selected) == 0) {
+                     if (length(input$result_table_rows_selected) == 0) {
                        df <- df() %>% filter(lipid_class == input$select_class) %>% droplevels()
                      } else {
                        df <- df() %>% filter(lipid_class == input$select_class) %>% droplevels()
-                       x <- levels(droplevels(df$lipid))[input$my_table_rows_selected]
+                       x <- levels(droplevels(df$lipid))[input$result_table_rows_selected]
                        df %>% filter(lipid %in% x)
                      }})
       return(plot_df)
