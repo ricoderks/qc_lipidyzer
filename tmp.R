@@ -88,15 +88,12 @@ df_meta %>%
 my_invert <- FALSE
 
 all <- aapje %>%
-  filter(sheet_names == sheet_names[1]) %>%
+  filter(sheet_names == sheet_names[3]) %>%
   select(data) %>%
   unnest %>%
   select(-meas_order) %>%
   filter((my_invert == TRUE & !grepl(Name, pattern = "QC*")) | (my_invert == FALSE & grepl(Name, pattern = "QC-[0-9]*"))) %>%
   gather(lipid, value, -Name, -batch, -batch_bar)  %>%
-  mutate(lipid_class = as.factor(gsub(x = lipid,
-                                      pattern = "[\\(]{0,1}[0-9.].*",
-                                      replacement = ""))) %>%
   mutate(Name = factor(Name, levels = unique(Name)),
          lipid = factor(lipid, levels = unique(lipid)),
          batch = as.factor(batch))

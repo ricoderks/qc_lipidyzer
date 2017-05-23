@@ -21,7 +21,8 @@ source("helper.R")
 
 shinyServer(
   function(input, output, session) {
-    values <- reactiveValues(all_data = NULL)
+    # store all data in a reactive object
+    values <- reactiveValues(results_data = NULL, meta_data = NULL)
     
     # params contains several general parameters linked to which excel sheet is selected
     params <- reactive({
@@ -42,6 +43,8 @@ shinyServer(
              "Samples" = list(type = "sample", qc = "QC*", invert = TRUE))
     })
 
+############################ meta data stuff ####################################################    
+    
     # prepare meta data filename for reading
     meta_file <- reactive({
       # check if there are already filenames
@@ -76,11 +79,20 @@ shinyServer(
                             col_names = TRUE)
     })
 
+    observe({
+      req(meta_file())
+      
+      # read the excel file and read only the first sheet
+      read_excel(path = meta_file()$datapath,
+                 sheet = 1,
+                 col_names = TRUE) -> values$meta_data
+    })
+    
     output$meta_data <- DT::renderDataTable({
      # req(input$merge_data)
-      req(df_meta)
+      req(values$meta_data)
 
-      df_meta() %>%
+      values$meta_data %>%
         datatable(selection = "none",
                   options = list(dom = "tp",
                                  pageLength = 25))
@@ -89,9 +101,9 @@ shinyServer(
     # show pull down select for select the sample ID column to merge the result files
     # with the meta files
     output$select_sample_id <- renderUI({
-      req(df_meta())
+      req(values$meta_data)
       
-      meta_colnames <- colnames(df_meta())
+      meta_colnames <- colnames(values$meta_data)
       
       tagList(
         selectInput(inputId = "select_sampleID_col",
@@ -187,7 +199,7 @@ shinyServer(
         mutate(data = map(.x = data,
                           .f = ~ mutate(.x, batch_bar = as.factor((as.numeric(batch) %% 2))))) -> df_all
       
-      values$all_data <- df_all
+      values$results_data <- df_all
   
       # update the lipid class selection to the classes actual present in the QC files
       # get the columns names of dataframe 3
@@ -206,12 +218,12 @@ shinyServer(
     
     # select the data depending on which sample type and result sheet is selected
     df <- reactive({
-      req(values$all_data)
+      req(values$results_data)
       req(params())
       req(sample_type())
 
       # merge into one dataframe
-      df <- values$all_data %>%
+      df <- values$results_data %>%
         filter(sheet_names == params()$sheetname) %>%
         select(data) %>%
         unnest %>%
@@ -249,9 +261,9 @@ shinyServer(
     # generate table to show the content of the result files
     output$tbl_all_data <- DT::renderDataTable({
       req(input$select_sheet_tbl)
-      req(values$all_data)
+      req(values$results_data)
 
-      values$all_data %>%
+      values$results_data %>%
         filter(sheet_names == input$select_sheet_tbl) %>%
         select(data) %>%
         unnest() %>%
@@ -263,24 +275,24 @@ shinyServer(
     # merge the meta data with the results
     # each sheet should contain the meta data
     observeEvent(input$merge_data, {
-      req(df_meta())
-      req(values$all_data)
+      req(values$meta_data)
+      req(values$results_data)
       req(input$select_sampleID_col)
       
-      tmp_df <- values$all_data
+      #tmp_df <- values$results_data
       
       # Name (i.e. sample ID in result file is a character). convert column choosen to character
       dots <- list(paste0("as.character(", input$select_sampleID_col, ")"))
       
       # create a tibble with the meta data
-      df_meta() %>%
+      values$meta_data %>%
         mutate_(.dots = setNames(dots, input$select_sampleID_col)) %>%
         #mutate(sampleID = as.character(sampleID)) %>%
         list() %>%
-        rep(nrow(tmp_df)) %>%
+        rep(nrow(values$results_data)) %>%
         data_frame(sample_info = .) %>%
         # combine the meta data tibble with the results tibble
-        bind_cols(tmp_df) %>%
+        bind_cols(values$results_data) %>%
         # do the actual merge of meta data and results for each sheet
         mutate(data = map2(.x = data,
                            .y = sample_info,
@@ -288,9 +300,9 @@ shinyServer(
                                             y = .y, 
                                             by = c("Name" = input$select_sampleID_col)))) %>%
         # keep only the data
-        select(sheetnames, data) -> tmp_df
+        select(sheetnames, data) -> values$results_data
       
-      values$all_data <- tmp_df
+   #   values$results_data <- tmp_df
     })
         
     output$result_table <- DT::renderDataTable({
