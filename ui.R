@@ -5,9 +5,22 @@ shinyUI(navbarPage("Lipidyzer analysis", selected = "Files",
                             fluidRow(
                               column(12,
                                      inputPanel(
-                                       fileInput("result_files", 
-                                                 "Select XLSX files from lipidyzer:",
-                                                 multiple = TRUE)
+                                       fileInput(inputId = "result_files", 
+                                                 label = "Select XLSX files from lipidyzer:",
+                                                 multiple = TRUE),
+                                       p(strong("Files uploaded :")),
+                                       textOutput(outputId = "show_result_files")
+                                     ))),
+                            fluidRow(
+                              column(12,
+                                     inputPanel(
+                                       p(HTML("Only the <b>first sheet</b> will be read. See HELP for more information about reading a meta data file.")),
+                                       fileInput(inputId = "meta_file", 
+                                                 label = "Select meta data file:",
+                                                 multiple = FALSE),
+                                       p(strong("File uploaded :")),
+                                       textOutput(outputId = "show_meta_file"),
+                                       uiOutput(outputId = "select_sample_id")
                                      )))),
                    tabPanel("Data",
                             fluidRow(
@@ -22,6 +35,9 @@ shinyUI(navbarPage("Lipidyzer analysis", selected = "Files",
                                                              "Fatty acid composition" = "Fatty Acid Composition"),
                                                  selected = "Lipid Class Concentration"),
                                      div(DT::dataTableOutput("tbl_all_data"), style = "font-size: 80%")
+                              ),
+                              column(12,
+                                     div(DT::dataTableOutput("meta_data"), style = "font-size: 80%")
                               )
                             )),
                    tabPanel("Results",
@@ -107,6 +123,15 @@ shinyUI(navbarPage("Lipidyzer analysis", selected = "Files",
                         <li>If you select a <b>Lipid Species *</b> or <b>Fatty Acid *</b> sheet, select which lipid class you want to see (default <i>CE</i>).</li>
                         <li>If you select a <b>Lipid Species *</b> or <b>Fatty Acid *</b> sheet it is possible to plot the individual species by clicking on the row in the table. Multiple selections is possible.</li>
                         </ul>")),
+                            h4("Meta data"),
+                            p(HTML("The lipidyzer results can be combined with meta data. For this an Excel sheet containing the meta data can be read. There are some prerequisites for this file :
+                                   <ul>
+                                     <li>Only the first sheet is read.</li>
+                                     <li>Column names should contain NO spaces</li>
+                                     <li>Avoid special characters (e.g. #) in the column names</li>
+                                     <li>Avoid complete column / row formatting. This will import empty rows / columns</li>
+                                   </ul>
+                                     ")),
                             h3("Graph"),
                             p(HTML("<ul>
                                     <li>Click on a data point to get more information.</li>

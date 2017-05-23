@@ -21,6 +21,8 @@ source("helper.R")
 
 shinyServer(
   function(input, output, session) {
+    values <- reactiveValues(all_data = NULL)
+    
     # params contains several general parameters linked to which excel sheet is selected
     params <- reactive({
       switch(input$select_sheet,
@@ -40,30 +42,97 @@ shinyServer(
              "Samples" = list(type = "sample", qc = "QC*", invert = TRUE))
     })
 
-    # prepare filenames for reading
-    myfiles <- reactive({
+    # prepare meta data filename for reading
+    meta_file <- reactive({
+      # check if there are already filenames
+      req(input$meta_file)
+      
+      # get the filenames
+      meta_file <- input$meta_file
+      
+      # this is nescessary for readxl to read the excel files
+      file.rename(meta_file$datapath,
+                  paste0(meta_file$datapath, ".xlsx"))
+      meta_file$datapath = paste0(meta_file$datapath, ".xlsx")
+      
+      return(meta_file)
+    })
+    
+    # show the filename of the uploaded meta data files
+    output$show_meta_file <- renderText({
+      req(meta_file())
+      
+      meta_file()$name
+    })
+    
+    # read the meta data from file
+    df_meta <- reactive({
+      # requires the meta file
+      req(meta_file())
+      
+      # read the excel file and read only the first sheet
+      df_meta <- read_excel(path = meta_file()$datapath,
+                            sheet = 1,
+                            col_names = TRUE)
+    })
+
+    output$meta_data <- DT::renderDataTable({
+     # req(input$merge_data)
+      req(df_meta)
+
+      df_meta() %>%
+        datatable(selection = "none",
+                  options = list(dom = "tp",
+                                 pageLength = 25))
+    })
+ 
+    # show pull down select for select the sample ID column to merge the result files
+    # with the meta files
+    output$select_sample_id <- renderUI({
+      req(df_meta())
+      
+      meta_colnames <- colnames(df_meta())
+      
+      tagList(
+        selectInput(inputId = "select_sampleID_col",
+                    label = "Select sample ID column to merge :",
+                    choices = meta_colnames),
+        actionButton(inputId = "merge_data",
+                     label = "Merge")
+      )
+    })
+       
+    # prepare result filenames for reading
+    result_files <- reactive({
       # check if there are already filenames
       req(input$result_files)
       
       # get the filenames
-      my_files <- input$result_files
+      result_files <- input$result_files
       
       # this is nescessary for readxl to read the excel files
-      file.rename(my_files$datapath,
-                  paste0(my_files$datapath, ".xlsx"))
-      my_files$datapath = paste0(my_files$datapath, ".xlsx")
+      file.rename(result_files$datapath,
+                  paste0(result_files$datapath, ".xlsx"))
+      result_files$datapath = paste0(result_files$datapath, ".xlsx")
       
-      return(my_files)
+      return(result_files)
     })
 
     # flag to show if files are uploaded
     output$fileUploaded <- reactive({
-      req(myfiles())
+      req(result_files())
       return(TRUE)
     })
     
     # flag to show if files are uploaded 
     outputOptions(output, "fileUploaded", suspendWhenHidden = FALSE)
+    
+    # show the filenames of the uploaded result files
+    output$show_result_files <- renderText({
+      req(result_files())
+
+      result_files()$name
+    })
     
     # create report download
     output$report <- downloadHandler(
@@ -72,7 +141,7 @@ shinyServer(
         tempReport <- file.path(tempdir(), "report.Rmd")
         file.copy(from = "report.Rmd", to = tempReport, overwrite = TRUE)
         
-        params <- list(myfiles = myfiles())
+        params <- list(result_files = result_files())
         
         withProgress(message = "Generating report...",
                      detail = "This may take a while!", {
@@ -85,57 +154,68 @@ shinyServer(
     )
     
     # read all datafiles and structure the dataframe
-    df_all <- reactive({
-      req(myfiles())
+    #df_all <- reactive({
+    observe({
+      req(result_files())
       
+      # prepare data frame
+      tmp <- data_frame(sheetnames = sheet_names)
+      
+      result_files()$datapath %>%
+        list() %>%
+        rep(nrow(tmp)) %>%
+        data_frame(datapath = .) %>%
+        bind_cols(tmp, .) -> df_all
+        
       # read all excel files
-      # add datapath and sheet_names to dataframe
-      df_all <- data_frame(datapath = rep(myfiles()$datapath, each = length(sheet_names)), 
-                       sheet_names = rep(sheet_names, nrow(myfiles())))
-      # read all the files
-      df_all <- df_all %>%
-        mutate(batch = rep(seq(1, length(unique(datapath))), each = length(unique(sheet_names)))) %>%
-        # batch_bar is created to alternate in bar graphs between solid line and dashed line
-        mutate(batch_bar = rep(c(1, 2), each = length(unique(sheet_names)), length.out = length(unique(sheet_names)) * length(unique(datapath)))) %>%
+      df_all %>%
         mutate(data = map2(.x = datapath,
-                           .y = sheet_names,
-                           .f = ~ read_excel(path = .x,
-                                             sheet = .y,
-                                             col_names = TRUE,
-                                             na = "."))) %>%
-        mutate(data = map2(.x = data,
-                           .y = batch,
-                           .f = ~ mutate(.x, batch = .y))) %>%
-        mutate(data = map2(.x = data,
-                           .y = batch_bar,
-                           .f = ~ mutate(.x, batch_bar = .y)))
+                           .y = sheetnames,
+                           .f = ~ map2(.x = .x,
+                                       .y = .y,
+                                       .f = ~read_excel(path = .x,
+                                                        sheet = .y,
+                                                        col_names = TRUE,
+                                                        na = ".") %>%
+                                         mutate(meas_order = 1:nrow(.)) %>%
+                                         mutate(batch = factor(.x))) %>%
+                             reduce(function(...) merge(..., all = TRUE)))) %>%
+        mutate(data = map(.x = data,
+                          .f = ~ arrange(.x, batch, meas_order))) %>%
+        mutate(data = map(.x = data,
+                          .f = ~ mutate(.x, batch = factor(batch, labels = 1:length(levels(batch)))))) %>%
+        mutate(data = map(.x = data,
+                          .f = ~ mutate(.x, batch_bar = as.factor((as.numeric(batch) %% 2))))) -> df_all
       
+      values$all_data <- df_all
+  
       # update the lipid class selection to the classes actual present in the QC files
       # get the columns names of dataframe 3
       class_names <- colnames(df_all$data[[3]])
       # only keep the real lipid class names
-      class_names <- subset(class_names, !(class_names %in% c("Name", "batch", "batch_bar")))
+      class_names <- subset(class_names, !(class_names %in% c("Name", "batch", "batch_bar", "meas_order")))
       # update the selectInput
       updateSelectInput(session = session,
                         inputId = "select_class",
                         label = "Select a lipid class:",
                         choices = class_names)
-      
+
       # return the dataframe
-      return(df_all)
+      # return(df_all)
   })
     
     # select the data depending on which sample type and result sheet is selected
     df <- reactive({
-      req(df_all())
+      req(values$all_data)
       req(params())
       req(sample_type())
 
       # merge into one dataframe
-      df <- df_all() %>%
+      df <- values$all_data %>%
         filter(sheet_names == params()$sheetname) %>%
         select(data) %>%
         unnest %>%
+        select(-meas_order) %>%
         filter((sample_type()$invert == TRUE & !grepl(x = Name, pattern = sample_type()$qc)) |
                  (sample_type()$invert == FALSE & grepl(x = Name, pattern = sample_type()$qc)))     #  select which samples you want to see
       
@@ -144,12 +224,10 @@ shinyServer(
              "class" = {df %>%
                  gather(lipid, value, -Name, -batch, -batch_bar)  %>%
                  mutate(Name = factor(Name, levels = unique(Name)),
-                        lipid = as.factor(lipid),
-                        batch = as.factor(batch),
-                        batch_bar = as.factor(batch_bar)) },
+                        lipid = as.factor(lipid)) },
              "species" = {
                df %>%
-                 gather(lipid, value, -Name, -batch)  %>%
+                 gather(lipid, value, -Name, -batch, -batch_bar)  %>%
                  mutate(lipid_class = as.factor(gsub(x = lipid,
                                                      pattern = "[\\(]{0,1}[0-9.].*",
                                                      replacement = ""))) %>%
@@ -158,7 +236,7 @@ shinyServer(
                         batch = as.factor(batch))},
              "fa_species" = {
                df %>%
-                 gather(lipid, value, -Name, -batch)  %>%
+                 gather(lipid, value, -Name, -batch, -batch_bar)  %>%
                  mutate(lipid_class = as.factor(gsub(x = lipid,
                                                      pattern = "[\\(](FA).*",
                                                      replacement = ""))) %>%
@@ -168,20 +246,53 @@ shinyServer(
              })
     })
 
+    # generate table to show the content of the result files
     output$tbl_all_data <- DT::renderDataTable({
-      req(df_all())
       req(input$select_sheet_tbl)
-      
-      df_all() %>%
+      req(values$all_data)
+
+      values$all_data %>%
         filter(sheet_names == input$select_sheet_tbl) %>%
         select(data) %>%
         unnest() %>%
-        select(-batch, -batch_bar) %>%
         datatable(selection = "none",
                   options = list(dom = "tp",
                                  pageLength = 25))
     })
-    
+
+    # merge the meta data with the results
+    # each sheet should contain the meta data
+    observeEvent(input$merge_data, {
+      req(df_meta())
+      req(values$all_data)
+      req(input$select_sampleID_col)
+      
+      tmp_df <- values$all_data
+      
+      # Name (i.e. sample ID in result file is a character). convert column choosen to character
+      dots <- list(paste0("as.character(", input$select_sampleID_col, ")"))
+      
+      # create a tibble with the meta data
+      df_meta() %>%
+        mutate_(.dots = setNames(dots, input$select_sampleID_col)) %>%
+        #mutate(sampleID = as.character(sampleID)) %>%
+        list() %>%
+        rep(nrow(tmp_df)) %>%
+        data_frame(sample_info = .) %>%
+        # combine the meta data tibble with the results tibble
+        bind_cols(tmp_df) %>%
+        # do the actual merge of meta data and results for each sheet
+        mutate(data = map2(.x = data,
+                           .y = sample_info,
+                           .f = ~ left_join(x = .x,
+                                            y = .y, 
+                                            by = c("Name" = input$select_sampleID_col)))) %>%
+        # keep only the data
+        select(sheetnames, data) -> tmp_df
+      
+      values$all_data <- tmp_df
+    })
+        
     output$result_table <- DT::renderDataTable({
       req(df())
       req(params())
@@ -235,7 +346,7 @@ shinyServer(
       plot_df <- switch(params()$type,
                    "class" = df(),
                    "species" = {
-                        if (length(input$result_table_rows_selected) == 0) {
+                     if (length(input$result_table_rows_selected) == 0) {
                        df <- df() %>% filter(lipid_class == input$select_class) %>% droplevels()
                      } else {
                        df <- df() %>% filter(lipid_class == input$select_class) %>% droplevels()
@@ -256,7 +367,7 @@ shinyServer(
     output$my_plot <- renderPlot({
       req(df())
       req(params())
-      req(myfiles())
+      req(result_files())
       req(sample_type())
       req(input$select_graph)
 
@@ -268,11 +379,11 @@ shinyServer(
       switch(sample_type()$type,
              "qc" = {
                switch(mygraph,
-                      "line" = { p <- qc_line(data = plot_df(), my_files = myfiles(), params = params()) },
-                      "bar" = { p <- qc_bar(data = plot_df(), my_files = myfiles(), params = params()) } )
+                      "line" = { p <- qc_line(data = plot_df(), my_files = result_files(), params = params()) },
+                      "bar" = { p <- qc_bar(data = plot_df(), my_files = result_files(), params = params()) } )
              },
              # this should become the sample plot for now the qc_line
-             "sample" = { p <- sample_heatmap(data = plot_df(), my_files = myfiles(), params = params()) } )
+             "sample" = { p <- sample_heatmap(data = plot_df(), my_files = result_files(), params = params()) } )
       p
     })
     
@@ -281,7 +392,7 @@ shinyServer(
     })
     
     # output$my_text <- renderText({
-    #    if (is.null(myfiles())) {
+    #    if (is.null(result_files())) {
     #      return("")
     #    } else {
     #      tmp <- df() %>% filter(lipid_class == input$select_class)

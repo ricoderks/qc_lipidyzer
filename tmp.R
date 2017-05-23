@@ -6,6 +6,7 @@ library(knitr)
 library(DT)
 library(purrr)
 library(tibble)
+library(profvis)
 
 ###################
 # a new labeler function, to show the RSD value in the facet strip
@@ -17,8 +18,8 @@ label_rsd <- function(value) {
 ###################
 
 
-myfiles <- data.frame(name = c("Results_BATCH1.xlsx", "Results_BATCH2.xlsx", "Results_BATCH3.xlsx"), 
-                      datapath = c("./data/Results_BATCH1.xlsx", "./data/Results_BATCH2.xlsx", "./data/Results_BATCH3.xlsx"))
+myfiles <- data.frame(name = c("Results_BATCH1.xlsx", "Results_BATCH2.xlsx"), 
+                      datapath = c("./data/Results_BATCH1.xlsx", "./data/Results_BATCH2.xlsx"))
 myfiles$datapath <- as.character(myfiles$datapath)
 
 
@@ -29,55 +30,92 @@ sheet_names <- c("Lipid Species Concentrations",
                 "Fatty Acid Concentration",
                 "Fatty Acid Composition")
 
-aap <- data_frame(datapath = rep(myfiles$datapath, each = length(sheet_names)), sheet_names = rep(sheet_names, nrow(myfiles)))
+aapje <- data_frame(sheetnames = sheet_names)
 
-aap %>% slice(1:12) -> aap
+myfiles$datapath %>%
+  list() %>%
+  rep(nrow(aapje)) %>%
+  data_frame(datapath = .) %>%
+  bind_cols(aapje, .) -> aapje
 
-aap <-aap %>%
-  # this is for the line graph
-  mutate(batch = rep(seq(1, length(unique(datapath))), each = length(unique(sheet_names)))) %>% 
-  # this is for the bar graph
-  mutate(batch_bar = rep(c(1, 2), each = length(unique(sheet_names)), length.out = length(unique(datapath)) * length(unique(sheet_names))))  %>%
+aapje %>% 
   mutate(data = map2(.x = datapath,
-                     .y = sheet_names,
-                     .f = ~ read_excel(path = .x,
-                                        sheet = .y,
-                                        col_names = TRUE,
-                                        na = ".")))  %>%
-                     #  filter(! (grepl(Name, pattern = "QC_SPIKE*")) & grepl(Name, pattern = "QC-*")))) %>% # remove QC spike and select the normal QC samples
+                     .y = sheetnames,
+                     .f = ~ map2(.x = .x,
+                                 .y = .y,
+                                .f = ~read_excel(path = .x,
+                                                 sheet = .y,
+                                                 col_names = TRUE,
+                                                 na = ".") %>%
+                                  mutate(meas_order = 1:nrow(.)) %>%
+                                  mutate(batch = factor(.x))) %>%
+                       reduce(function(...) merge(..., all = TRUE)))) %>%
+  mutate(data = map(.x = data,
+                    .f = ~ arrange(.x, batch, meas_order))) %>%
+  mutate(data = map(.x = data,
+                    .f = ~ mutate(.x, batch = factor(batch, labels = 1:length(levels(batch)))))) %>%
+  mutate(data = map(.x = data,
+                    .f = ~ mutate(.x, batch_bar = as.factor((as.numeric(batch) %% 2)))))-> aapje
+
+
+
+
+
+df_meta <- read_excel(path = "./data/MetaData.xlsx",
+                      sheet = 1,
+                      col_names = TRUE)
+
+mycol <- "sampleID"
+
+# df_meta %>% 
+#   mutate_(mycol = as.character(mycol)) -> df_meta
+
+dots <- list(paste0("as.character(", mycol, ")"))
+
+df_meta %>%
+  mutate_(.dots = setNames(dots, mycol)) %>%
+  list() %>%
+  rep(nrow(aapje)) %>%
+  data_frame(sample_info = .) %>%
+  bind_cols(aapje) %>%
   mutate(data = map2(.x = data,
-                     .y = batch,
-                     .f = ~ mutate(.x, batch = .y))) %>%
-  mutate(data = map2(.x = data,
-                     .y = batch_bar,
-                     .f = ~ mutate(.x, batch_bar = .y)))
+                     .y = sample_info,
+                     .f = ~ left_join(x = .x,
+                                      y = .y,
+                                      by = c("Name" = "sampleID")))) -> aapje
 
 
+my_invert <- FALSE
 
-my_invert <- TRUE
-
-all <- aap %>%
-  filter(sheet_names == sheet_names[3]) %>%
+all <- aapje %>%
+  filter(sheet_names == sheet_names[1]) %>%
   select(data) %>%
   unnest %>%
-  filter((my_invert == TRUE & !grepl(Name, pattern = "QC*")) | (my_invert == FALSE & grepl(Name, pattern = "QC-*")))
+  select(-meas_order) %>%
+  filter((my_invert == TRUE & !grepl(Name, pattern = "QC*")) | (my_invert == FALSE & grepl(Name, pattern = "QC-[0-9]*"))) %>%
+  gather(lipid, value, -Name, -batch, -batch_bar)  %>%
+  mutate(lipid_class = as.factor(gsub(x = lipid,
+                                      pattern = "[\\(]{0,1}[0-9.].*",
+                                      replacement = ""))) %>%
+  mutate(Name = factor(Name, levels = unique(Name)),
+         lipid = factor(lipid, levels = unique(lipid)),
+         batch = as.factor(batch))
+
   
 ## line grah
-p <- all %>% 
-  gather(lipid_class, concentration, -Name, -batch, -batch_bar)  %>%
-  mutate(Name = factor(Name, levels = unique(Name)),
-         lipid_class = as.factor(lipid_class),
-         batch = as.factor(batch)) %>%
+p <- all  %>%
+  filter(lipid_class == "CE") %>%
+  droplevels() %>%
   ggplot() +
   geom_point(aes(x = Name,
-                 y = concentration,
-                 color = lipid_class,
+                 y = value,
+                 color = lipid,
                  shape = batch),
              size = 3) +
   geom_path(aes(x = Name,
-                y = concentration,
-                color = lipid_class,
-                group = lipid_class)) +
+                y = value,
+                color = lipid,
+                group = lipid)) +
   facet_wrap(~ lipid_class, ncol = 3, scales = "free_y") +
   guides(color = "none",
          shape = guide_legend(title = "Batch")) +
