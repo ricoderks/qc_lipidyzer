@@ -2,7 +2,7 @@
 
 ######################################################
 # plot a QC plot as a line graph
-qc_line <- function(data, my_files, params) {
+qc_line <- function(data, num_batches, params) {
 p <- data %>%
   ggplot() +
   geom_point(aes(x = Name,
@@ -14,7 +14,7 @@ p <- data %>%
                 y = value,
                 color = lipid,
                 group = lipid))
-if (nrow(my_files) == 1) {
+if (num_batches == 1) {
   p <- p + guides(color = "none",
                   shape = "none")
 } else {
@@ -32,7 +32,7 @@ return(p)
 
 ######################################################
 # plot a QC plot as a bar graph
-qc_bar <- function(data, my_files, params) {
+qc_bar <- function(data, params) {
   p <- data %>%
     group_by(lipid) %>%
     mutate(mean = mean(value, na.rm = TRUE),
@@ -64,7 +64,7 @@ qc_bar <- function(data, my_files, params) {
 
 ######################################################
 # plot samples as heatmap
-sample_heatmap <- function(data, my_files, params) {
+sample_heatmap <- function(data, params) {
   p <- data %>%
     ggplot() +
     geom_raster(aes(x = Name,

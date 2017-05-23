@@ -22,35 +22,84 @@ source("helper.R")
 shinyServer(
   function(input, output, session) {
     # store all data in a reactive object
-    values <- reactiveValues(results_data = NULL, meta_data = NULL)
+    values <- reactiveValues(results_data = NULL,      # store the raw results
+                             meta_data = NULL,         # store the meta data
+                             merged_data = NULL,       # store the merged data (results and meta data)
+                             selected_data = NULL,     # data from the selected data sheet and selected parameters
+                             params = NULL,            # store the parameters for selecting a sheet
+                             sample_type = NULL)       # store the sample type selection
     
-    # params contains several general parameters linked to which excel sheet is selected
-    params <- reactive({
-      switch(input$select_sheet,
-             "Lipid Species Concentration" = list(sheetname = "Lipid Species Concentrations", ylab = "Concentration", col_title = "Lipid species",row_selection = "multiple", type = "species"),
-             "Lipid Species Composition" = list(sheetname = "Lipid Species Composition", ylab = "Composition", col_title = "Lipid species", row_selection = "multiple", type = "species"),
-             "Lipid Class Concentration" = list(sheetname = "Lipid Class Concentration", ylab = "Concentration", col_title = "Lipid class", row_selection = "none", type = "class"),
-             "Lipid Class Composition" = list(sheetname = "Lipid Class Composition", ylab = "Composition", col_title = "Lipid class", row_selection = "none", type = "class"),
-             "Fatty Acid Concentration" = list(sheetname = "Fatty Acid Concentration", ylab = "Concentration", col_title = "FA species", row_selection = "multiple", type = "fa_species"),
-             "Fatty Acid Composition" = list(sheetname = "Fatty Acid Composition", ylab = "Composition", col_title = "FA species", row_selection = "multiple", type = "fa_species"))
-    })
     
-    # sample_type contains some information depending on which sample type is selected
-    sample_type <- reactive({
-      switch(input$select_sample_type,
+   # sample_type contains some information depending on which sample type is selected
+    #sample_type <- eventReactive(input$select_sample_type, {
+    observe({
+      req(values$results_data)
+      
+      values$sample_type <- switch(input$select_sample_type,
              "QC_normal" = list(type = "qc", qc = "QC-[0-9]*", invert = FALSE),
              "QC_spike" = list(type = "qc", qc = "QC_SPIKE*", invert = FALSE),
              "Samples" = list(type = "sample", qc = "QC*", invert = TRUE))
-    })
+      
+      values$params <- switch(input$select_sheet,
+                              "Lipid Species Concentration" = list(sheetname = "Lipid Species Concentrations", ylab = "Concentration", col_title = "Lipid species",row_selection = "multiple", type = "species"),
+                              "Lipid Species Composition" = list(sheetname = "Lipid Species Composition", ylab = "Composition", col_title = "Lipid species", row_selection = "multiple", type = "species"),
+                              "Lipid Class Concentration" = list(sheetname = "Lipid Class Concentration", ylab = "Concentration", col_title = "Lipid class", row_selection = "none", type = "class"),
+                              "Lipid Class Composition" = list(sheetname = "Lipid Class Composition", ylab = "Composition", col_title = "Lipid class", row_selection = "none", type = "class"),
+                              "Fatty Acid Concentration" = list(sheetname = "Fatty Acid Concentration", ylab = "Concentration", col_title = "FA species", row_selection = "multiple", type = "fa_species"),
+                              "Fatty Acid Composition" = list(sheetname = "Fatty Acid Composition", ylab = "Composition", col_title = "FA species", row_selection = "multiple", type = "fa_species"))
+      
 
-############################ meta data stuff ####################################################    
+      if (!is.null(values$results_data)) {
+        if (is.null(values$merged_data)) {
+          df <- values$results_data
+        } else {
+          df <- values$merged_data
+        }
+        
+        df %>%
+          filter(sheet_names == values$params$sheetname) %>%
+          select(data) %>%
+          unnest %>%
+          select(-meas_order) %>%
+          filter((values$sample_type$invert == TRUE & !grepl(x = Name, pattern = values$sample_type$qc)) |
+                   (values$sample_type$invert == FALSE & grepl(x = Name, pattern = values$sample_type$qc))) -> df
+        
+        df <- switch(values$params$type,
+                  "class" = {df %>%
+                      gather(lipid, value, -Name, -batch, -batch_bar)  %>%
+                      mutate(Name = factor(Name, levels = unique(Name)),
+                             lipid = as.factor(lipid)) },
+                  "species" = {
+                    df %>%
+                      gather(lipid, value, -Name, -batch, -batch_bar)  %>%
+                      mutate(lipid_class = as.factor(gsub(x = lipid,
+                                                          pattern = "[\\(]{0,1}[0-9.].*",
+                                                          replacement = ""))) %>%
+                      mutate(Name = factor(Name, levels = unique(Name)),
+                             lipid = factor(lipid, levels = unique(lipid)),
+                             batch = as.factor(batch))},
+                  "fa_species" = {
+                    df %>%
+                      gather(lipid, value, -Name, -batch, -batch_bar)  %>%
+                      mutate(lipid_class = as.factor(gsub(x = lipid,
+                                                          pattern = "[\\(](FA).*",
+                                                          replacement = ""))) %>%
+                      mutate(Name = factor(Name, levels = unique(Name)),
+                             lipid = as.factor(lipid),
+                             batch = as.factor(batch))
+                  })
+        values$selected_data <- df
+      }
+    })
+    
+    ############################ meta data stuff ####################################################    
     
     # prepare meta data filename for reading
     meta_file <- reactive({
-      # check if there are already filenames
+      # check if there are already filename
       req(input$meta_file)
       
-      # get the filenames
+      # get the filename
       meta_file <- input$meta_file
       
       # this is nescessary for readxl to read the excel files
@@ -61,7 +110,7 @@ shinyServer(
       return(meta_file)
     })
     
-    # show the filename of the uploaded meta data files
+    # show the filename of the uploaded meta data files on the files tab
     output$show_meta_file <- renderText({
       req(meta_file())
       
@@ -69,17 +118,8 @@ shinyServer(
     })
     
     # read the meta data from file
-    df_meta <- reactive({
-      # requires the meta file
-      req(meta_file())
-      
-      # read the excel file and read only the first sheet
-      df_meta <- read_excel(path = meta_file()$datapath,
-                            sheet = 1,
-                            col_names = TRUE)
-    })
-
     observe({
+      # requires the meta data file
       req(meta_file())
       
       # read the excel file and read only the first sheet
@@ -88,16 +128,19 @@ shinyServer(
                  col_names = TRUE) -> values$meta_data
     })
     
+    # show the meta data in a table in the data tab
+    # this is temporary (or I will make different tabs in the data tab)
     output$meta_data <- DT::renderDataTable({
-     # req(input$merge_data)
-      req(values$meta_data)
-
-      values$meta_data %>%
+      #req(values$selected_data)
+      req(plot_df())
+      
+      plot_df() %>%
         datatable(selection = "none",
                   options = list(dom = "tp",
                                  pageLength = 25))
     })
- 
+    ##################################### end meta data stuff ########################################
+    
     # show pull down select for select the sample ID column to merge the result files
     # with the meta files
     output$select_sample_id <- renderUI({
@@ -113,7 +156,9 @@ shinyServer(
                      label = "Merge")
       )
     })
-       
+    
+    ##################################### results file ###########################################
+    
     # prepare result filenames for reading
     result_files <- reactive({
       # check if there are already filenames
@@ -129,7 +174,7 @@ shinyServer(
       
       return(result_files)
     })
-
+    
     # flag to show if files are uploaded
     output$fileUploaded <- reactive({
       req(result_files())
@@ -142,28 +187,9 @@ shinyServer(
     # show the filenames of the uploaded result files
     output$show_result_files <- renderText({
       req(result_files())
-
+      
       result_files()$name
     })
-    
-    # create report download
-    output$report <- downloadHandler(
-      filename = "report.html",
-      content = function(file) {
-        tempReport <- file.path(tempdir(), "report.Rmd")
-        file.copy(from = "report.Rmd", to = tempReport, overwrite = TRUE)
-        
-        params <- list(result_files = result_files())
-        
-        withProgress(message = "Generating report...",
-                     detail = "This may take a while!", {
-        rmarkdown::render(input = tempReport, 
-                          output_file = file,
-                          params = params,
-                          envir = new.env(parent = globalenv()))
-        })
-      }
-    )
     
     # read all datafiles and structure the dataframe
     #df_all <- reactive({
@@ -178,7 +204,7 @@ shinyServer(
         rep(nrow(tmp)) %>%
         data_frame(datapath = .) %>%
         bind_cols(tmp, .) -> df_all
-        
+      
       # read all excel files
       df_all %>%
         mutate(data = map2(.x = datapath,
@@ -200,7 +226,7 @@ shinyServer(
                           .f = ~ mutate(.x, batch_bar = as.factor((as.numeric(batch) %% 2))))) -> df_all
       
       values$results_data <- df_all
-  
+      
       # update the lipid class selection to the classes actual present in the QC files
       # get the columns names of dataframe 3
       class_names <- colnames(df_all$data[[3]])
@@ -211,59 +237,23 @@ shinyServer(
                         inputId = "select_class",
                         label = "Select a lipid class:",
                         choices = class_names)
-
+      
       # return the dataframe
       # return(df_all)
-  })
-    
-    # select the data depending on which sample type and result sheet is selected
-    df <- reactive({
-      req(values$results_data)
-      req(params())
-      req(sample_type())
-
-      # merge into one dataframe
-      df <- values$results_data %>%
-        filter(sheet_names == params()$sheetname) %>%
-        select(data) %>%
-        unnest %>%
-        select(-meas_order) %>%
-        filter((sample_type()$invert == TRUE & !grepl(x = Name, pattern = sample_type()$qc)) |
-                 (sample_type()$invert == FALSE & grepl(x = Name, pattern = sample_type()$qc)))     #  select which samples you want to see
-      
-      # looking at the lipid classes or species
-      switch(params()$type,
-             "class" = {df %>%
-                 gather(lipid, value, -Name, -batch, -batch_bar)  %>%
-                 mutate(Name = factor(Name, levels = unique(Name)),
-                        lipid = as.factor(lipid)) },
-             "species" = {
-               df %>%
-                 gather(lipid, value, -Name, -batch, -batch_bar)  %>%
-                 mutate(lipid_class = as.factor(gsub(x = lipid,
-                                                     pattern = "[\\(]{0,1}[0-9.].*",
-                                                     replacement = ""))) %>%
-                 mutate(Name = factor(Name, levels = unique(Name)),
-                        lipid = factor(lipid, levels = unique(lipid)),
-                        batch = as.factor(batch))},
-             "fa_species" = {
-               df %>%
-                 gather(lipid, value, -Name, -batch, -batch_bar)  %>%
-                 mutate(lipid_class = as.factor(gsub(x = lipid,
-                                                     pattern = "[\\(](FA).*",
-                                                     replacement = ""))) %>%
-                 mutate(Name = factor(Name, levels = unique(Name)),
-                        lipid = as.factor(lipid),
-                        batch = as.factor(batch))
-             })
     })
-
+    
     # generate table to show the content of the result files
     output$tbl_all_data <- DT::renderDataTable({
       req(input$select_sheet_tbl)
       req(values$results_data)
-
-      values$results_data %>%
+      
+      if (is.null(values$merged_data)) {
+        df <- values$results_data  
+      } else {
+        # if the data is merged, show the merged data
+        df <- values$merged_data
+      }
+      df %>%
         filter(sheet_names == input$select_sheet_tbl) %>%
         select(data) %>%
         unnest() %>%
@@ -271,16 +261,37 @@ shinyServer(
                   options = list(dom = "tp",
                                  pageLength = 25))
     })
-
+    ################################### end result files ###########################################
+    
+    ##################################### QC report ################################################    
+    # create report download
+    output$report <- downloadHandler(
+      filename = "report.html",
+      content = function(file) {
+        tempReport <- file.path(tempdir(), "report.Rmd")
+        file.copy(from = "report.Rmd", to = tempReport, overwrite = TRUE)
+        
+        params <- list(result_files = result_files())
+        
+        withProgress(message = "Generating report...",
+                     detail = "This may take a while!", {
+                       rmarkdown::render(input = tempReport, 
+                                         output_file = file,
+                                         params = params,
+                                         envir = new.env(parent = globalenv()))
+                     })
+      }
+    )
+    ################################ end QC report ####################################################    
+   
+######################################## merge meta data with results ########################################    
     # merge the meta data with the results
     # each sheet should contain the meta data
     observeEvent(input$merge_data, {
       req(values$meta_data)
       req(values$results_data)
       req(input$select_sampleID_col)
-      
-      #tmp_df <- values$results_data
-      
+
       # Name (i.e. sample ID in result file is a character). convert column choosen to character
       dots <- list(paste0("as.character(", input$select_sampleID_col, ")"))
       
@@ -300,37 +311,89 @@ shinyServer(
                                             y = .y, 
                                             by = c("Name" = input$select_sampleID_col)))) %>%
         # keep only the data
-        select(sheetnames, data) -> values$results_data
-      
-   #   values$results_data <- tmp_df
-    })
-        
-    output$result_table <- DT::renderDataTable({
-      req(df())
-      req(params())
+        select(sheetnames, data) -> values$merged_data
 
+    })
+########################################## end merge meta data with results ###############################
+    
+    output$result_table <- DT::renderDataTable({
+      req(values$selected_data)
+      req(values$params)
+      req(input$select_class)
+      
       #do the stats
-      tbl_df <- switch(params()$type,
-                    "class" = df(),
-                    "species" = df() %>% filter(lipid_class == input$select_class),
-                    "fa_species" = df() %>% filter(lipid_class == input$select_class))
+      tbl_df <- switch(values$params$type,
+                       "class" = values$selected_data,
+                       "species" = values$selected_data %>% filter(lipid_class == input$select_class),
+                       "fa_species" = values$selected_data %>% filter(lipid_class == input$select_class))
       tbl_df %>%
         select(lipid, value, Name) %>%
         group_by(lipid) %>%
         summarise(mean = mean(value, na.rm = TRUE),
                   stdev = sd(value, na.rm = TRUE),
                   RSD = stdev / mean * 100) %>%
-        datatable(colnames = c(params()$col_title, "Mean", "St.dev.", "RSD [%]"),
+        datatable(colnames = c(values$params$col_title, "Mean", "St.dev.", "RSD [%]"),
                   options = list(dom = "tp",
                                  pageLength = 5), 
-                  selection = params()$row_selection,            # remove the search field
+                  selection = values$params$row_selection,            # remove the search field
                   rownames = FALSE) %>% 
         formatRound(columns = c("mean", "stdev", "RSD"), digits = 1)
     })
+ 
+###################################################  plotting ##############################################################3   
+    # prepare the dataframe for plotting
+    plot_df <- reactive({
+      req(values$selected_data)
+      req(values$params)
+      
+      plot_df <- switch(values$params$type,
+                        "class" = values$selected_data,
+                        "species" = {
+                          if (length(input$result_table_rows_selected) == 0) {
+                            df <- values$selected_data %>% filter(lipid_class == input$select_class) %>% droplevels()
+                          } else {
+                            df <- values$selected_data %>% filter(lipid_class == input$select_class) %>% droplevels()
+                            x <- levels(droplevels(df$lipid))[input$result_table_rows_selected]
+                            df %>% filter(lipid %in% x)
+                          }},
+                        "fa_species" = {
+                          if (length(input$result_table_rows_selected) == 0) {
+                            df <- values$selected_data %>% filter(lipid_class == input$select_class) %>% droplevels()
+                          } else {
+                            df <- values$selected_data %>% filter(lipid_class == input$select_class) %>% droplevels()
+                            x <- levels(droplevels(df$lipid))[input$result_table_rows_selected]
+                            df %>% filter(lipid %in% x)
+                          }})
+      return(plot_df)
+    })
 
+    # do the plotting    
+    output$my_plot <- renderPlot({
+      req(plot_df())
+      req(values$params)
+      req(values$sample_type)
+      req(input$select_graph)
+      
+      graph_type <- switch(values$params$type,
+                        "class" = input$select_graph,
+                        "species" = "line",
+                        "fa_species" = "line")
+      # select the correct graph
+      switch(values$sample_type$type,
+             "qc" = {
+               switch(graph_type,
+                      "line" = { p <- qc_line(data = plot_df(), num_batches = max(as.numeric(plot_df()$batch)), params = values$params) },
+                      "bar" = { p <- qc_bar(data = plot_df(), params = values$params) } )
+             },
+             # this should become the sample plot for now the qc_line
+             "sample" = { p <- sample_heatmap(data = plot_df(), params = values$params) } )
+      p
+    })
+    
+    # show selected datapoints
     output$info <- renderDataTable({
       req(plot_df())
-      req(params())
+      req(values$params)
       
       if (!is.null(input$plot_click)) {
         data_point <- nearPoints(df = plot_df(), coordinfo = input$plot_click, threshold = 20, maxpoints = 1)
@@ -348,57 +411,8 @@ shinyServer(
         }
       } 
     })
-
-    # prepare the dataframe for plotting
-    plot_df <- reactive({
-      req(df())
-      req(input$select_class)
-      req(params)
-      
-      plot_df <- switch(params()$type,
-                   "class" = df(),
-                   "species" = {
-                     if (length(input$result_table_rows_selected) == 0) {
-                       df <- df() %>% filter(lipid_class == input$select_class) %>% droplevels()
-                     } else {
-                       df <- df() %>% filter(lipid_class == input$select_class) %>% droplevels()
-                       x <- levels(droplevels(df$lipid))[input$result_table_rows_selected]
-                       df %>% filter(lipid %in% x)
-                     }},
-                   "fa_species" = {
-                     if (length(input$result_table_rows_selected) == 0) {
-                       df <- df() %>% filter(lipid_class == input$select_class) %>% droplevels()
-                     } else {
-                       df <- df() %>% filter(lipid_class == input$select_class) %>% droplevels()
-                       x <- levels(droplevels(df$lipid))[input$result_table_rows_selected]
-                       df %>% filter(lipid %in% x)
-                     }})
-      return(plot_df)
-    })
-    
-    output$my_plot <- renderPlot({
-      req(df())
-      req(params())
-      req(result_files())
-      req(sample_type())
-      req(input$select_graph)
-
-      mygraph <- switch(params()$type,
-                    "class" = input$select_graph,
-                    "species" = "line",
-                    "fa_species" = "line")
-      # select the correct graph
-      switch(sample_type()$type,
-             "qc" = {
-               switch(mygraph,
-                      "line" = { p <- qc_line(data = plot_df(), my_files = result_files(), params = params()) },
-                      "bar" = { p <- qc_bar(data = plot_df(), my_files = result_files(), params = params()) } )
-             },
-             # this should become the sample plot for now the qc_line
-             "sample" = { p <- sample_heatmap(data = plot_df(), my_files = result_files(), params = params()) } )
-      p
-    })
-    
+ ############################################ end plotting ######################################################
+       
     output$help_session <- renderPrint({
       print(sessionInfo())
     })
