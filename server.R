@@ -53,7 +53,13 @@ shinyServer(
         if (is.null(values$merged_data)) {
           df <- values$results_data
         } else {
-          df <- values$merged_data
+          if (input$select_group_plot == "none") {
+            df <- values$results_data
+          } else {
+            df <- values$merged_data
+            group_names <- colnames(values$meta_data)
+            group_names <- subset(group_names, !(group_names %in% input$select_sampleID_col))
+          }
         }
         
         df %>%
@@ -62,16 +68,15 @@ shinyServer(
           unnest %>%
           select(-meas_order) %>%
           filter((values$sample_type$invert == TRUE & !grepl(x = Name, pattern = values$sample_type$qc)) |
-                   (values$sample_type$invert == FALSE & grepl(x = Name, pattern = values$sample_type$qc))) -> df
+                   (values$sample_type$invert == FALSE & grepl(x = Name, pattern = values$sample_type$qc))) %>%
+          gather(lipid, value, -Name, -batch, -batch_bar) -> df
         
         df <- switch(values$params$type,
                   "class" = {df %>%
-                      gather(lipid, value, -Name, -batch, -batch_bar)  %>%
                       mutate(Name = factor(Name, levels = unique(Name)),
                              lipid = as.factor(lipid)) },
                   "species" = {
                     df %>%
-                      gather(lipid, value, -Name, -batch, -batch_bar)  %>%
                       mutate(lipid_class = as.factor(gsub(x = lipid,
                                                           pattern = "[\\(]{0,1}[0-9.].*",
                                                           replacement = ""))) %>%
@@ -80,7 +85,6 @@ shinyServer(
                              batch = as.factor(batch))},
                   "fa_species" = {
                     df %>%
-                      gather(lipid, value, -Name, -batch, -batch_bar)  %>%
                       mutate(lipid_class = as.factor(gsub(x = lipid,
                                                           pattern = "[\\(](FA).*",
                                                           replacement = ""))) %>%
@@ -131,16 +135,14 @@ shinyServer(
     # show the meta data in a table in the data tab
     # this is temporary (or I will make different tabs in the data tab)
     output$meta_data <- DT::renderDataTable({
-      #req(values$selected_data)
-      req(plot_df())
-      
-      plot_df() %>%
+      req(values$selected_data)
+
+      values$selected_data %>%
         datatable(selection = "none",
                   options = list(dom = "tp",
-                                 pageLength = 25))
+                                 pageLength = 10))
     })
-    ##################################### end meta data stuff ########################################
-    
+
     # show pull down select for select the sample ID column to merge the result files
     # with the meta files
     output$select_sample_id <- renderUI({
@@ -156,6 +158,7 @@ shinyServer(
                      label = "Merge")
       )
     })
+    ##################################### end meta data stuff ########################################
     
     ##################################### results file ###########################################
     
@@ -174,15 +177,6 @@ shinyServer(
       
       return(result_files)
     })
-    
-    # flag to show if files are uploaded
-    output$fileUploaded <- reactive({
-      req(result_files())
-      return(TRUE)
-    })
-    
-    # flag to show if files are uploaded 
-    outputOptions(output, "fileUploaded", suspendWhenHidden = FALSE)
     
     # show the filenames of the uploaded result files
     output$show_result_files <- renderText({
@@ -259,8 +253,20 @@ shinyServer(
         unnest() %>%
         datatable(selection = "none",
                   options = list(dom = "tp",
-                                 pageLength = 25))
+                                 pageLength = 10))
     })
+    
+    # flag to show if files are uploaded
+    # to show the "Generate report" button
+    output$fileUploaded <- reactive({
+      req(result_files())
+      
+      return(TRUE)
+    })
+    
+    # flag to show if files are uploaded 
+    outputOptions(output, "fileUploaded", suspendWhenHidden = FALSE)
+    
     ################################### end result files ###########################################
     
     ##################################### QC report ################################################    
@@ -285,6 +291,13 @@ shinyServer(
     ################################ end QC report ####################################################    
    
 ######################################## merge meta data with results ########################################    
+    # is the merge button clicked?!
+    data_merged <- eventReactive(input$merge_data, {
+      return(TRUE)
+    })
+    
+    #outputOptions(output, "data_merged", suspendWhenHidden = FALSE)
+    
     # merge the meta data with the results
     # each sheet should contain the meta data
     observeEvent(input$merge_data, {
@@ -312,6 +325,20 @@ shinyServer(
                                             by = c("Name" = input$select_sampleID_col)))) %>%
         # keep only the data
         select(sheetnames, data) -> values$merged_data
+      
+      # update group selection pull down list
+      # get the columns names from the meta data file
+      # and remove the column name which was used for merging
+      group_names <- c("none", colnames(values$meta_data))
+      group_names <- subset(group_names, !(group_names %in% input$select_sampleID_col))
+      
+      # update the selectInput
+      updateSelectInput(session = session,
+                        inputId = "select_group_plot",
+                        label = "Select a group :",
+                        choices = group_names,
+                        selected = "none")      
+      
 
     })
 ########################################## end merge meta data with results ###############################
@@ -386,7 +413,7 @@ shinyServer(
                       "bar" = { p <- qc_bar(data = plot_df(), params = values$params) } )
              },
              # this should become the sample plot for now the qc_line
-             "sample" = { p <- sample_heatmap(data = plot_df(), params = values$params) } )
+             "sample" = { p <- sample_heatmap(data = plot_df(), params = values$params, my_facet = input$select_group_plot) } )
       p
     })
     

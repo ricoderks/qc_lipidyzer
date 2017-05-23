@@ -85,7 +85,7 @@ df_meta %>%
                                       by = c("Name" = "sampleID")))) -> aapje
 
 
-my_invert <- FALSE
+my_invert <- TRUE
 
 all <- aapje %>%
   filter(sheet_names == sheet_names[3]) %>%
@@ -98,6 +98,13 @@ all <- aapje %>%
          lipid = factor(lipid, levels = unique(lipid)),
          batch = as.factor(batch))
 
+# all is merged data remove them 
+group_names <- colnames(df_meta)
+group_names <- subset(group_names, !(group_names) %in% "sampleID")
+
+all %>%
+  select_()
+  
   
 ## line grah
 p <- all  %>%

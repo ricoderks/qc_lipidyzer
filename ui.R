@@ -20,7 +20,7 @@ shinyUI(navbarPage("Lipidyzer analysis", selected = "Files",
                                                  multiple = FALSE),
                                        p(strong("File uploaded :")),
                                        textOutput(outputId = "show_meta_file"),
-                                       uiOutput(outputId = "select_sample_id")
+                                       uiOutput(outputId = "select_sample_id")    # here a pull down list and a button will be placed for merging
                                      )))),
                    tabPanel("Data",
                             fluidRow(
@@ -41,7 +41,6 @@ shinyUI(navbarPage("Lipidyzer analysis", selected = "Files",
                               )
                             )),
                    tabPanel("Results",
-                            #textOutput("my_text"),
                             fluidRow(
                               column(4,
                                      inputPanel(
@@ -83,7 +82,12 @@ shinyUI(navbarPage("Lipidyzer analysis", selected = "Files",
                                                         ),
                                        conditionalPanel(condition = "output.fileUploaded == true && (input.select_sample_type == 'QC_normal' || input.select_sample_type == 'QC_spike')",
                                                         downloadButton(outputId = "report",
-                                                                       label = "Generate report")))),
+                                                                       label = "Generate report")),
+                                       conditionalPanel(condition = "input.select_sample_type == 'Samples'",
+                                                        selectInput(inputId = "select_group_plot",
+                                                                    label = "Select a group :",
+                                                                    choices = c("none" = "none")))
+                                       )),
                               column(4,
                                      div(DT::dataTableOutput("result_table"), style = "font-size: 80%")),
                               column(4, 

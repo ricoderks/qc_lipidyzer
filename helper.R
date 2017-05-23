@@ -64,7 +64,7 @@ qc_bar <- function(data, params) {
 
 ######################################################
 # plot samples as heatmap
-sample_heatmap <- function(data, params) {
+sample_heatmap <- function(data, params, my_facet) {
   p <- data %>%
     ggplot() +
     geom_raster(aes(x = Name,
