@@ -20,8 +20,7 @@ shinyUI(navbarPage("Lipidyzer analysis", selected = "Files",
                                                  multiple = FALSE),
                                        p(strong("File uploaded :")),
                                        textOutput(outputId = "show_meta_file"),
-                                       uiOutput(outputId = "select_sample_id"),    # here a pull down list and a button will be placed for merging
-                                       textOutput(outputId = "show_debug")
+                                       uiOutput(outputId = "select_sample_id")    # here a pull down list and a button will be placed for merging
                                      )))),
                    navbarMenu("Data",
                               tabPanel("Raw data",
