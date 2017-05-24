@@ -89,3 +89,37 @@ sample_heatmap <- function(data, params, facet = FALSE) {
   
   return(p)
 }
+
+######################################################
+# plot samples as bargraph
+sample_bar <- function(data, params) {
+  dodge <- position_dodge(width = 0.9)
+  p <- data %>%
+    # group_by(lipid, my_group_col) %>%
+    # summarise(mean = mean(value, na.rm = TRUE),
+    #           stdev = sd(value, na.rm = TRUE)) %>%
+    ggplot(aes(x = lipid,
+               y = mean,
+               fill = my_group_col)) +
+    geom_bar(stat = "identity",
+             position = dodge) +
+    geom_errorbar(aes(ymin = mean - stdev,
+                      ymax = mean + stdev),
+                  stat = "identity",
+                  position = dodge,
+                  size = 0.3, 
+                  width = 0.2) +
+    scale_fill_discrete(guide = guide_legend(title = NULL)) +
+    ylab(paste("Mean", tolower(params$ylab)))
+  p <- switch(params$type,
+              "class" = { p + xlab("Lipid class") +
+                  facet_wrap(~ lipid, 
+                             scales = "free") +
+                  theme(axis.text.x = element_blank(),
+                        axis.ticks.x = element_blank())},
+              "species" = { p + xlab("Lipid species") },
+              "fa_species" = { p + xlab("Fatty acid species") }
+  )
+    
+  return(p)
+}

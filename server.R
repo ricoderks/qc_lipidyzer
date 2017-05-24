@@ -400,25 +400,34 @@ shinyServer(
     plot_df <- reactive({
       req(values$selected_data)
       req(values$params)
+
+      plot_df <- values$selected_data
       
       plot_df <- switch(values$params$type,
-                        "class" = values$selected_data,
+                        "class" = plot_df,
                         "species" = {
                           if (length(input$result_table_rows_selected) == 0) {
-                            df <- values$selected_data %>% filter(lipid_class == input$select_class) %>% droplevels()
+                            df <- plot_df %>% filter(lipid_class == input$select_class) %>% droplevels()
                           } else {
-                            df <- values$selected_data %>% filter(lipid_class == input$select_class) %>% droplevels()
+                            df <- plot_df %>% filter(lipid_class == input$select_class) %>% droplevels()
                             x <- levels(droplevels(df$lipid))[input$result_table_rows_selected]
                             df %>% filter(lipid %in% x)
                           }},
                         "fa_species" = {
                           if (length(input$result_table_rows_selected) == 0) {
-                            df <- values$selected_data %>% filter(lipid_class == input$select_class) %>% droplevels()
+                            df <- plot_df %>% filter(lipid_class == input$select_class) %>% droplevels()
                           } else {
                             df <- values$selected_data %>% filter(lipid_class == input$select_class) %>% droplevels()
                             x <- levels(droplevels(df$lipid))[input$result_table_rows_selected]
                             df %>% filter(lipid %in% x)
                           }})
+      if (values$sample_type == "sample" && input$select_sample_graph == "bar") {
+        plot_df <- plot_df %>%
+          group_by(lipid, my_group_col) %>%
+          summarise(mean = mean(value, na.rm = TRUE),
+                    stdev = sd(value, na.rm = TRUE))
+      } 
+      
       return(plot_df)
     })
 
@@ -443,7 +452,9 @@ shinyServer(
              if (input$select_group_plot == "none") {
                "sample" = { p <- sample_heatmap(data = plot_df(), params = values$params) }
              } else {
-               "sample" = { p <- sample_heatmap(data = plot_df(), params = values$params, facet = TRUE) }
+               switch(input$select_sample_graph,
+                      "heatmap" = { "sample" = { p <- sample_heatmap(data = plot_df(), params = values$params, facet = TRUE) } },
+                      "bar" = { "sample" = { p <- sample_bar(data = plot_df(), params = values$params) } })
              })
       p
     })
@@ -452,6 +463,12 @@ shinyServer(
     output$hover_info <- renderUI({
       req(input$plot_hover)
       req(plot_df())
+      
+      # if for the samples the bar graph is selected hover info should not be available
+      # there are some problems getting the correct info, so for now leave out
+      if (input$select_sample_graph == "bar") {
+        return(NULL)
+      }
       
       hover <- input$plot_hover
       point <- nearPoints(df = plot_df(),

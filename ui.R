@@ -46,7 +46,7 @@ shinyUI(navbarPage("Lipidyzer analysis", selected = "Files",
                                        ))),
                    tabPanel("Analysis",
                             fluidRow(
-                              column(6,
+                              column(8,
                                      inputPanel(
                                        radioButtons(inputId = "select_sample_type",
                                                    label = "Select sample type:",
@@ -90,9 +90,15 @@ shinyUI(navbarPage("Lipidyzer analysis", selected = "Files",
                                        conditionalPanel(condition = "input.select_sample_type == 'Samples'",
                                                         selectInput(inputId = "select_group_plot",
                                                                     label = "Select a group :",
-                                                                    choices = c("none" = "none")))
+                                                                    choices = c("none" = "none")),
+                                                        conditionalPanel(condition = "input.select_group_plot != 'none'",
+                                                                       radioButtons(inputId = "select_sample_graph",
+                                                                                    label = "Select graph style:",
+                                                                                    choices = c("Heatmap" = "heatmap",
+                                                                                                "Bar graph" = "bar"),
+                                                                                    selected = "heatmap")))
                                        )),
-                              column(6,
+                              column(4,
                                      div(DT::dataTableOutput("result_table"), style = "font-size: 80%"))),
                             fluidRow(
                               column(12,
