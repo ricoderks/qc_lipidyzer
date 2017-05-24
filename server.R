@@ -421,7 +421,7 @@ shinyServer(
                             x <- levels(droplevels(df$lipid))[input$result_table_rows_selected]
                             df %>% filter(lipid %in% x)
                           }})
-      if (values$sample_type == "sample" && input$select_sample_graph == "bar") {
+      if (values$sample_type == "sample" && input$select_sample_graph == "bar" && input$select_group_plot != "none") {
         plot_df <- plot_df %>%
           group_by(lipid, my_group_col) %>%
           summarise(mean = mean(value, na.rm = TRUE),
