@@ -167,7 +167,7 @@ shinyServer(
 
       values$meta_data %>%
         datatable(selection = "none",
-                  options = list(dom = "tp",
+                  options = list(dom = "ltp",
                                  pageLength = 25))
     })
 
