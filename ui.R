@@ -108,58 +108,70 @@ shinyUI(navbarPage("Lipidyzer analysis", selected = "Files",
                                                 hover = hoverOpts(id = "plot_hover",
                                                                   delay = 0)),
                                      uiOutput(outputId = "hover_info")))),
-                   tabPanel("Help",
-                            h3("Introduction"),
-                            p("This is a first version of the web application to visualize the results from a Lipidyzer study. 
-                   Currently switching Excel sheet will cause the web application to read all files again. 
-                   This will be changed in the future to improve speed."),
-                            p(strong("Prerequisites :")),
-                            p(HTML("<ul>
-                   <li>The order of the processing of the files is alphabetically.</li>
-                   <li>QC spike sample ID needs to start with <b>QC_SPIKE</b>.</li>
-                   <li>Normal QC samples ID needs to start with <b>QC-</b>.</li>
-                   <li>Make sure sample ID's don't start with <b>QC</b>!!</li>
-                   <li>The sheetnames in the xlsx file should not be changed. The names are :</li>
-                   <ul>
-                        <li>Lipid Species Concentrations</li>
-                        <li>Lipid Species Composition</li>
-                        <li>Lipid Class Concentration</li>
-                        <li>Lipid Class Composition</li>
-                        <li>Fatty Acid Concentration</li>
-                        <li>Fatty Acid Composition</li>
-                        </ul>
-                    </ul>")),
-                            h3("Start"),
-                            p(HTML("<ul>
-                        <li>To show the results from a Lipidyzer study load the Excel output file (.xlsx). Multiple files at once is possible.</li>
-                        <li>Select which sheet from the Excel file you want to see (default <i>Lipid Class Concentration</i>).</li>
-                        <li>Select which sample type you want to see (default is <i>Samples</i>).</li>
-                        <li>For QC samples : if you select a <b>Lipid Class *</b> sheet, you can choose between a line graph or bar graph.</li>
-                        <li>If you select a <b>Lipid Species *</b> or <b>Fatty Acid *</b> sheet, select which lipid class you want to see (default <i>CE</i>).</li>
-                        <li>If you select a <b>Lipid Species *</b> or <b>Fatty Acid *</b> sheet it is possible to plot the individual species by clicking on the row in the table. Multiple selections is possible.</li>
-                        </ul>")),
-                            h4("Meta data"),
-                            p("Note: So far there is no error checking on merging meta data with the results data! "),
-                            p(HTML("The lipidyzer results can be combined with meta data. For this an Excel sheet containing the meta data can be read. There are some prerequisites for this file :
-                                   <ul>
-                                     <li>Only the first sheet is read.</li>
-                                     <li>Column names should contain NO spaces</li>
-                                     <li>Avoid special characters (e.g. #) in the column names</li>
-                                     <li>Avoid complete column / row formatting. This will import empty rows / columns</li>
-                                   </ul>
-                                     ")),
-                            p(HTML("After clicking the merge button, you can select in the <b>Analysis</b> tab a column for which you want to split the data in the heatmap.")),
-                            h3("Graph"),
-                            p(HTML("<ul>
-                                    <li>Hover over a data point to get more information.</li>
-                                    </ul>")),
-                            h3("Report"),
-                            p("For QC samples a report with all graphs and tables can be downloaded by clicking the ", strong("Generate report"), " button. This may take 10-20 seconds. 
-                              This button is available if the sample type is selected to one of the QC samples."),
-                            h3("Issues"),
-                            p("If you have any issue please send me an email or go to the ", a("issue tracker.", href = "https://git.lumc.nl/rjederks/lipidyzer/issues", target = "_blank")),
-                            h3("Session info"),
-                            htmlOutput("help_session")
+                   navbarMenu("Help",
+                              tabPanel("Introduction",
+                                       h3("Introduction"),
+                                       p("This is a first version of the web application to visualize the results from a Lipidyzer study."),
+                                       p(strong("Prerequisites :")),
+                                       p(HTML("<ul>
+                                                <li>The order of the processing of the files is alphabetically.</li>
+                                                <li>QC spike sample ID needs to start with <b>QC_SPIKE</b>.</li>
+                                                <li>Normal QC samples ID needs to start with <b>QC-</b>.</li>
+                                                <li>Make sure sample ID's don't start with <b>QC</b>!!</li>
+                                                <li>The sheetnames in the xlsx file should not be changed. The names are :</li>
+                                                  <ul>
+                                                    <li>Lipid Species Concentrations</li>
+                                                    <li>Lipid Species Composition</li>
+                                                    <li>Lipid Class Concentration</li>
+                                                    <li>Lipid Class Composition</li>
+                                                    <li>Fatty Acid Concentration</li>
+                                                    <li>Fatty Acid Composition</li>
+                                                  </ul>
+                                                 </ul>"))),
+                              tabPanel("First start",
+                                       h3("Start"),
+                                       p(HTML("<ul>
+                                                 <li>To show the results from a Lipidyzer study load the Excel output file (.xlsx). Multiple files at once is possible.</li>
+                                                 <li>Select which sheet from the Excel file you want to see (default <i>Lipid Class Concentration</i>).</li>
+                                                 <li>Select which sample type you want to see (default is <i>Samples</i>).</li>
+                                                 <li>For QC samples : if you select a <b>Lipid Class *</b> sheet, you can choose between a line graph or bar graph.</li>
+                                                 <li>If you select a <b>Lipid Species *</b> or <b>Fatty Acid *</b> sheet, select which lipid class you want to see (default <i>CE</i>).</li>
+                                                 <li>If you select a <b>Lipid Species *</b> or <b>Fatty Acid *</b> sheet it is possible to plot the individual species by clicking on the row in the table. Multiple selections is possible.</li>
+                                               </ul>"))),
+                              tabPanel("Meta data",
+                                       h4("Meta data"),
+                                       p("Note: So far there is no error checking on merging meta data with the results data! "),
+                                       p(HTML("The lipidyzer results can be combined with meta data. For this an Excel sheet containing the meta data can be read. There are some prerequisites for this file :
+                                               <ul>
+                                                 <li>Only the first sheet is read.</li>
+                                                 <li>Column names should contain NO spaces</li>
+                                                 <li>Avoid special characters (e.g. #) in the column names</li>
+                                                 <li>Avoid complete column / row formatting. This will import empty rows / columns</li>
+                                              </ul>")),
+                                       p(HTML("After clicking the merge button, you can select in the <b>Analysis</b> tab a column for which you want to split the data in the heatmap."))),
+                              tabPanel("Graphs", 
+                                       h3("Graph"),
+                                       p(HTML("There are several graphs available depending on the sample type you choose. </br>
+                                                If you select <b>QC samples</b> you can choose between line and
+                                                bar graphs if you select a class sheet, otherwise only the line graph is available.</br>
+                                                For the <b>Samples</b> there is a heatmap available. When you merge your data with meta data and select a column
+                                                you can also generate bar graphs.
+                                              <ul>
+                                                <li>Hover over a data point to get more information.</li>
+                                              </ul>"))),
+                              tabPanel("Report",
+                                       h3("Report"),
+                                       p("For QC samples a report with all graphs and tables can be downloaded by clicking the ", strong("Generate report"), " button. This may take 10-20 seconds. 
+                                          This button is available if the sample type is selected to one of the QC samples."),
+                                       p("For the moment this is not working. This will be fixed later.", 
+                                         a("See issue #2", href = "https://git.lumc.nl/rjederks/lipidyzer/issues/2", target = "_blank"),
+                                         " for more information.")),
+                              "----",
+                              tabPanel("About", 
+                                       h3("Issues"),
+                                       p("If you have any issue please send me an email or go to the ", a("issue tracker.", href = "https://git.lumc.nl/rjederks/lipidyzer/issues", target = "_blank")),
+                                       h3("Session info"),
+                                       htmlOutput("help_session"))
                    )
 )
 )
