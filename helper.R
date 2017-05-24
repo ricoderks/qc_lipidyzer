@@ -64,7 +64,7 @@ qc_bar <- function(data, params) {
 
 ######################################################
 # plot samples as heatmap
-sample_heatmap <- function(data, params, my_facet) {
+sample_heatmap <- function(data, params, facet = FALSE) {
   p <- data %>%
     ggplot() +
     geom_raster(aes(x = Name,
@@ -80,6 +80,12 @@ sample_heatmap <- function(data, params, my_facet) {
          "species" = { p + ylab("Lipid species") },
          "fa_species" = { p + ylab("Fatty acid species") }
   )
+  
+  if (facet == TRUE) {
+    p <- p + facet_wrap(~ my_group_col,
+                        nrow = 1,
+                        scales = "free_x")
+  }
   
   return(p)
 }

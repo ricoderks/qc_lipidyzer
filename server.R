@@ -48,28 +48,56 @@ shinyServer(
                               "Fatty Acid Concentration" = list(sheetname = "Fatty Acid Concentration", ylab = "Concentration", col_title = "FA species", row_selection = "multiple", type = "fa_species"),
                               "Fatty Acid Composition" = list(sheetname = "Fatty Acid Composition", ylab = "Composition", col_title = "FA species", row_selection = "multiple", type = "fa_species"))
       
-
       if (!is.null(values$results_data)) {
         if (is.null(values$merged_data)) {
           df <- values$results_data
+          df %>% 
+            mutate(data = map(.x = data,
+                              .f = ~ select(.x, -meas_order))) -> df
         } else {
           if (input$select_group_plot == "none") {
             df <- values$results_data
+            df %>% 
+              mutate(data = map(.x = data,
+                                .f = ~ select(.x, -meas_order))) -> df
           } else {
             df <- values$merged_data
+            my_group_col <- input$select_group_plot
+            # get column names
             group_names <- colnames(values$meta_data)
-            group_names <- subset(group_names, !(group_names %in% input$select_sampleID_col))
+            # remove the column name used for merging, this one is not present anyway
+            # and remove the column selected for grouping
+            group_names <- subset(group_names, !(group_names %in% c(input$select_sampleID_col)))
+            
+            # if no group is selected I need to remove all extra columns from the merge i.e. group_names,
+            # add '-' to the names to make select remove them
+            group_names <- c(paste0("-", group_names), "-meas_order")
+            
+            # mutate the selected group column to a new column and remove the original one
+            # make the column factor as well
+            dots <- list(paste0("as.factor(", my_group_col, ")"))
+
+            df %>%
+              mutate(data = map(.x = data,
+                                .f = ~ mutate_(.x, .dots = setNames(dots, "my_group_col")))) %>%
+              mutate(data = map(.x = data,
+                                .f = ~ select_(.x, .dots = as.list(group_names)))) -> df
           }
         }
-        
+            
         df %>%
           filter(sheet_names == values$params$sheetname) %>%
           select(data) %>%
           unnest %>%
-          select(-meas_order) %>%
           filter((values$sample_type$invert == TRUE & !grepl(x = Name, pattern = values$sample_type$qc)) |
-                   (values$sample_type$invert == FALSE & grepl(x = Name, pattern = values$sample_type$qc))) %>%
-          gather(lipid, value, -Name, -batch, -batch_bar) -> df
+                   (values$sample_type$invert == FALSE & grepl(x = Name, pattern = values$sample_type$qc))) -> df
+        if(input$select_group_plot == "none") {
+          df %>%
+            gather(lipid, value, -Name, -batch, -batch_bar) -> df
+        } else {
+          df %>%
+            gather(lipid, value, -Name, -batch, -batch_bar, -my_group_col) -> df
+        }
         
         df <- switch(values$params$type,
                   "class" = {df %>%
@@ -367,7 +395,7 @@ shinyServer(
         formatRound(columns = c("mean", "stdev", "RSD"), digits = 1)
     })
  
-###################################################  plotting ##############################################################3   
+###################################################  plotting ##############################################################   
     # prepare the dataframe for plotting
     plot_df <- reactive({
       req(values$selected_data)
@@ -412,8 +440,11 @@ shinyServer(
                       "line" = { p <- qc_line(data = plot_df(), num_batches = max(as.numeric(plot_df()$batch)), params = values$params) },
                       "bar" = { p <- qc_bar(data = plot_df(), params = values$params) } )
              },
-             # this should become the sample plot for now the qc_line
-             "sample" = { p <- sample_heatmap(data = plot_df(), params = values$params, my_facet = input$select_group_plot) } )
+             if (input$select_group_plot == "none") {
+               "sample" = { p <- sample_heatmap(data = plot_df(), params = values$params) }
+             } else {
+               "sample" = { p <- sample_heatmap(data = plot_df(), params = values$params, facet = TRUE) }
+             })
       p
     })
     
