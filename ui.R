@@ -22,24 +22,27 @@ shinyUI(navbarPage("Lipidyzer analysis", selected = "Files",
                                        textOutput(outputId = "show_meta_file"),
                                        uiOutput(outputId = "select_sample_id")    # here a pull down list and a button will be placed for merging
                                      )))),
-                   tabPanel("Data",
-                            fluidRow(
-                              column(12,
-                                     selectInput(inputId = "select_sheet_tbl",
-                                                 label = "Select a sheet:",
-                                                 choices = c("Lipid species concentration" = "Lipid Species Concentrations",
-                                                             "Lipid species composition" = "Lipid Species Composition",
-                                                             "Lipid class concentration" = "Lipid Class Concentration",
-                                                             "Lipid class composition" = "Lipid Class Composition",
-                                                             "Fatty acid concentration" = "Fatty Acid Concentration",
-                                                             "Fatty acid composition" = "Fatty Acid Composition"),
-                                                 selected = "Lipid Class Concentration"),
-                                     div(DT::dataTableOutput("tbl_all_data"), style = "font-size: 80%")
-                              ),
-                              column(12,
-                                     div(DT::dataTableOutput("meta_data"), style = "font-size: 80%")
-                              )
-                            )),
+                   navbarMenu("Data",
+                              tabPanel("Raw data",
+                                       fluidRow(
+                                         column(12,
+                                                selectInput(inputId = "select_sheet_tbl",
+                                                            label = "Select a sheet:",
+                                                            choices = c("Lipid species concentration" = "Lipid Species Concentrations",
+                                                                        "Lipid species composition" = "Lipid Species Composition",
+                                                                        "Lipid class concentration" = "Lipid Class Concentration",
+                                                                        "Lipid class composition" = "Lipid Class Composition",
+                                                                        "Fatty acid concentration" = "Fatty Acid Concentration",
+                                                                        "Fatty acid composition" = "Fatty Acid Composition"),
+                                                            selected = "Lipid Class Concentration"),
+                                                div(DT::dataTableOutput("tbl_all_data"), style = "font-size: 80%")
+                                         ))),
+                              tabPanel("Meta data",
+                                       fluidRow(
+                                         column(12,
+                                                div(DT::dataTableOutput("meta_data"), style = "font-size: 80%")
+                                         )
+                                       ))),
                    tabPanel("Results",
                             fluidRow(
                               column(4,

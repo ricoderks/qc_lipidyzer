@@ -140,7 +140,7 @@ shinyServer(
       values$selected_data %>%
         datatable(selection = "none",
                   options = list(dom = "tp",
-                                 pageLength = 10))
+                                 pageLength = 25))
     })
 
     # show pull down select for select the sample ID column to merge the result files
@@ -252,8 +252,8 @@ shinyServer(
         select(data) %>%
         unnest() %>%
         datatable(selection = "none",
-                  options = list(dom = "tp",
-                                 pageLength = 10))
+                  options = list(dom = "ltp",
+                                 pageLength = 25))
     })
     
     # flag to show if files are uploaded
