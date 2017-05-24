@@ -163,9 +163,9 @@ shinyServer(
     # show the meta data in a table in the data tab
     # this is temporary (or I will make different tabs in the data tab)
     output$meta_data <- DT::renderDataTable({
-      req(values$selected_data)
+      req(values$meta_data)
 
-      values$selected_data %>%
+      values$meta_data %>%
         datatable(selection = "none",
                   options = list(dom = "tp",
                                  pageLength = 25))
@@ -447,28 +447,44 @@ shinyServer(
              })
       p
     })
-    
-    # show selected datapoints
-    output$info <- renderDataTable({
+
+    # show selected data point    
+    output$hover_info <- renderUI({
+      req(input$plot_hover)
       req(plot_df())
-      req(values$params)
       
-      if (!is.null(input$plot_click)) {
-        data_point <- nearPoints(df = plot_df(), coordinfo = input$plot_click, threshold = 20, maxpoints = 1)
-      }
-      if (!is.null(input$plot_brush)) {
-        data_point <- brushedPoints(df = plot_df(), brush = input$plot_brush)
-      }
-      # this is what is returned!!
-      if (exists("data_point")) {
-        if (nrow(data_point) > 0) {
-          data_point %>% 
-            select(Name, lipid, value) %>%
-            filter(Name != "") %>%    # remove some empty rows
-            datatable(options = list(dom = "tp", pageLength = 5), selection = "none", rownames = FALSE)
-        }
-      } 
+      hover <- input$plot_hover
+      point <- nearPoints(df = plot_df(),
+                          coordinfo = hover,
+                          threshold = 5,
+                          maxpoints = 1, addDist = TRUE)
+      # if there is no point return nothing
+      if (nrow(point) == 0) return(NULL)
+      
+      # calculate point position INSIDE the image as percent of total dimensions
+      # from left (horizontal) and from top (vertical)
+      left_pct <- (hover$x - hover$domain$left) / (hover$domain$right - hover$domain$left)
+      top_pct <- (hover$domain$top - hover$y) / (hover$domain$top - hover$domain$bottom)
+      
+      # calculate distance from left and bottom side of the picture in pixels
+      left_px <- hover$range$left + left_pct * (hover$range$right - hover$range$left)
+      top_px <- hover$range$top + top_pct * (hover$range$bottom - hover$range$top)
+      
+      # create style property fot tooltip
+      # background color is set so tooltip is a bit transparent
+      # z-index is set so we are sure are tooltip will be on top
+      style <- paste0("position:absolute; z-index:100; background-color: rgba(245, 245, 245, 0.85); ",
+                      "left:", left_px + 2, "px; top:", top_px + 2, "px;")
+      
+      # actual tooltip created as wellPanel
+      wellPanel(
+        style = style,
+        p(HTML(paste0("<b> Sample: </b>", point$Name, "<br/>",
+                      "<b> Lipid : </b>", point$lipid, "<br/>",
+                      "<b> Value : </b>", point$value)))
+      )
     })
+    
  ############################################ end plotting ######################################################
        
     output$help_session <- renderPrint({

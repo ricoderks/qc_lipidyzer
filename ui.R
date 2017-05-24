@@ -44,9 +44,9 @@ shinyUI(navbarPage("Lipidyzer analysis", selected = "Files",
                                                 div(DT::dataTableOutput("meta_data"), style = "font-size: 80%")
                                          )
                                        ))),
-                   tabPanel("Results",
+                   tabPanel("Analysis",
                             fluidRow(
-                              column(4,
+                              column(6,
                                      inputPanel(
                                        radioButtons(inputId = "select_sample_type",
                                                    label = "Select sample type:",
@@ -92,15 +92,16 @@ shinyUI(navbarPage("Lipidyzer analysis", selected = "Files",
                                                                     label = "Select a group :",
                                                                     choices = c("none" = "none")))
                                        )),
-                              column(4,
-                                     div(DT::dataTableOutput("result_table"), style = "font-size: 80%")),
-                              column(4, 
-                                     div(DT::dataTableOutput("info"), style = "font-size: 80%"))),
+                              column(6,
+                                     div(DT::dataTableOutput("result_table"), style = "font-size: 80%"))),
                             fluidRow(
                               column(12,
-                                     plotOutput("my_plot", height = "800px", 
-                                                click = "plot_click",
-                                                brush = "plot_brush")))),
+                                     plotOutput(outputId = "my_plot", height = "800px", 
+                                                #click = "plot_click",
+                                                #brush = "plot_brush",
+                                                hover = hoverOpts(id = "plot_hover",
+                                                                  delay = 0)),
+                                     uiOutput(outputId = "hover_info")))),
                    tabPanel("Help",
                             h3("Introduction"),
                             p("This is a first version of the web application to visualize the results from a Lipidyzer study. 
@@ -132,6 +133,7 @@ shinyUI(navbarPage("Lipidyzer analysis", selected = "Files",
                         <li>If you select a <b>Lipid Species *</b> or <b>Fatty Acid *</b> sheet it is possible to plot the individual species by clicking on the row in the table. Multiple selections is possible.</li>
                         </ul>")),
                             h4("Meta data"),
+                            p("Note: So far there is no error checking on merging meta data with the results data! "),
                             p(HTML("The lipidyzer results can be combined with meta data. For this an Excel sheet containing the meta data can be read. There are some prerequisites for this file :
                                    <ul>
                                      <li>Only the first sheet is read.</li>
@@ -140,10 +142,10 @@ shinyUI(navbarPage("Lipidyzer analysis", selected = "Files",
                                      <li>Avoid complete column / row formatting. This will import empty rows / columns</li>
                                    </ul>
                                      ")),
+                            p(HTML("After clicking the merge button, you can select in the <b>Analysis</b> tab a column for which you want to split the data in the heatmap.")),
                             h3("Graph"),
                             p(HTML("<ul>
-                                    <li>Click on a data point to get more information.</li>
-                                    <li>You can select multiple points by click and drag.</li>
+                                    <li>Hover over a data point to get more information.</li>
                                     </ul>")),
                             h3("Report"),
                             p("For QC samples a report with all graphs and tables can be downloaded by clicking the ", strong("Generate report"), " button. This may take 10-20 seconds. 
