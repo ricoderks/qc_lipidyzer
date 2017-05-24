@@ -472,8 +472,8 @@ shinyServer(
              })
       # zoom, for now don't use
       # with faceting zooming like this goes wrong
-      # p <- p +
-      #   coord_cartesian(xlim = values$x, ylim = values$y, expand = TRUE)         
+      p <- p +
+        coord_cartesian(ylim = values$y, expand = TRUE)
       
       p 
     })
