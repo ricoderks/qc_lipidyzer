@@ -27,7 +27,9 @@ shinyServer(
                              merged_data = NULL,       # store the merged data (results and meta data)
                              selected_data = NULL,     # data from the selected data sheet and selected parameters
                              params = NULL,            # store the parameters for selecting a sheet
-                             sample_type = NULL)       # store the sample type selection
+                             sample_type = NULL,       # store the sample type selection
+                             x = NULL,                 # x and y for zooming of the plot
+                             y = NULL)
     
     
    # sample_type contains some information depending on which sample type is selected
@@ -431,6 +433,18 @@ shinyServer(
       return(plot_df)
     })
 
+    observeEvent(input$plot_brush, {
+      brush <- input$plot_brush
+      
+      values$x <- c(brush$xmin, brush$xmax)
+      values$y <- c(brush$ymin, brush$ymax)
+    })
+    
+    observeEvent(input$plot_dblclick, {
+      values$x <- NULL
+      values$y <- NULL
+    })
+    
     # do the plotting    
     output$my_plot <- renderPlot({
       req(plot_df())
@@ -456,7 +470,12 @@ shinyServer(
                       "heatmap" = { "sample" = { p <- sample_heatmap(data = plot_df(), params = values$params, facet = TRUE) } },
                       "bar" = { "sample" = { p <- sample_bar(data = plot_df(), params = values$params) } })
              })
-      p
+      # zoom, for now don't use
+      # with faceting zooming like this goes wrong
+      # p <- p +
+      #   coord_cartesian(xlim = values$x, ylim = values$y, expand = TRUE)         
+      
+      p 
     })
 
     # show selected data point    

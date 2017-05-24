@@ -102,8 +102,10 @@ shinyUI(navbarPage("Lipidyzer analysis", selected = "Files",
                             fluidRow(
                               column(12,
                                      plotOutput(outputId = "my_plot", height = "800px", 
-                                                #click = "plot_click",
-                                                #brush = "plot_brush",
+                                                # for now no zooming
+                                                # brush = brushOpts(id = "plot_brush",
+                                                #                   resetOnNew = TRUE),
+                                                # dblclick = "plot_dblclick",
                                                 hover = hoverOpts(id = "plot_hover",
                                                                   delay = 0)),
                                      uiOutput(outputId = "hover_info")))),
