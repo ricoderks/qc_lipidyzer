@@ -1,6 +1,6 @@
 library(shiny)
 
-shinyUI(navbarPage("Lipidyzer analysis", selected = "Files",
+shinyUI(navbarPage(title = "Lipidyzer analysis", selected = "Files", windowTitle = "Lipidyzer analysis - created with RStudio® and Shiny®",
                    tabPanel("Files",
                             fluidRow(
                               column(12,
