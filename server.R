@@ -430,7 +430,12 @@ shinyServer(
                     stdev = sd(value, na.rm = TRUE))
       } 
       
-      return(plot_df)
+      if (nrow(plot_df) != 0) { 
+        return(plot_df)
+      } else {
+        # if no data in dataframe, return nothing
+        return(NULL)
+      }
     })
 
     observeEvent(input$plot_brush, {
